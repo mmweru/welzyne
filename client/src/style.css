@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Jacques Francois', cursive;
+  font-family: "Jacques Francois", serif;
   line-height: 1.5;
   font-weight: 400;
 
