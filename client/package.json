@@ -15,8 +15,7 @@
   "devDependencies": {
     "@vercel/node": "^5.1.7",
     "concurrently": "^9.1.2",
-    "nodemon": "^3.1.9",
-    "vite-plugin-pwa": "^0.21.1"
+    "nodemon": "^3.1.9"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
