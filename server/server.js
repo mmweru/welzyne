@@ -11,6 +11,12 @@ import userRoutes from './routes/userRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import { initAdmin } from './scripts/initAdmin.js';
 import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load environment variables based on NODE_ENV
 dotenv.config({
