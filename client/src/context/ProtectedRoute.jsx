@@ -1,36 +1,22 @@
-// src/components/ProtectedRoute.js
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthContext'; // Make sure the path is correct
+import { useAuth } from '../context/AuthContext'; // Adjust the path as needed
 
 const ProtectedRoute = ({ children, roles }) => {
-  const { user, loading, hasRole, validateToken } = useAuth();
+  const { user, loading, initialized, hasRole } = useAuth();
   const location = useLocation();
-  const [validating, setValidating] = useState(false);
 
-  // This effect runs when the component mounts
-  // It ensures we have the latest user data on route changes
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!user && localStorage.getItem('token')) {
-        setValidating(true);
-        await validateToken();
-        setValidating(false);
-      }
-    };
-    
-    checkAuth();
-  }, [validateToken, user, location.pathname]);
-
-  // Show loading state while authentication is being verified
-  if (loading || validating) {
-    return <div className="auth-loading">
-      <div className="spinner"></div>
-      <p>Verifying your access...</p>
-    </div>;
+  // Only show loading state while the initial auth check is happening
+  if (loading || !initialized) {
+    return (
+      <div className="auth-loading">
+        <div className="spinner"></div>
+        <p>Verifying your access...</p>
+      </div>
+    );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated (only after initialized)
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

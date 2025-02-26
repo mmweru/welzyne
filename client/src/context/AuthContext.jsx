@@ -13,6 +13,7 @@ const api = axios.create({
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   // Set up axios interceptor to handle token expiration
   useEffect(() => {
@@ -39,19 +40,28 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status on app load
   useEffect(() => {
     const checkAuthStatus = async () => {
+      setLoading(true);
       const token = localStorage.getItem('token');
       if (token) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
-          await validateToken();
+          const isValid = await validateToken();
+          if (!isValid) {
+            // Clear invalid token
+            localStorage.removeItem('token');
+            delete api.defaults.headers.common['Authorization'];
+            setUser(null);
+          }
         } catch (error) {
           console.error("Token validation failed:", error);
-          // Don't logout here - just set loading to false
-          setLoading(false);
+          // Clear invalid token
+          localStorage.removeItem('token');
+          delete api.defaults.headers.common['Authorization'];
+          setUser(null);
         }
-      } else {
-        setLoading(false);
       }
+      setLoading(false);
+      setInitialized(true);
     };
     
     checkAuthStatus();
@@ -61,7 +71,6 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.get('/auth/validate');
       setUser(response.data);
-      setLoading(false);
       return true;
     } catch (error) {
       console.error("Token validation error:", error.response?.data || error.message);
@@ -71,7 +80,6 @@ export const AuthProvider = ({ children }) => {
         delete api.defaults.headers.common['Authorization'];
         setUser(null);
       }
-      setLoading(false);
       return false;
     }
   };
@@ -125,6 +133,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user,
       loading,
+      initialized,
       login,
       register,
       logout,
