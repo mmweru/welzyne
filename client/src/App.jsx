@@ -1,4 +1,3 @@
-// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Homepage from './homepage';
@@ -16,18 +15,19 @@ import './style.css';
 
 const App = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Homepage />} />
-        <Route path="/who-we-are" element={<WhoWeAre />} />
-        <Route path="/track-a-package" element={<TrackPackage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route path="/who-we-are" element={<WhoWeAre />} />
+          <Route path="/track-a-package" element={<TrackPackage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
 
-         {/* protected routes */}
-         <Route 
+          {/* protected routes */}
+          <Route 
             path="/admin" 
             element={
               <ProtectedRoute roles={['admin']}>
@@ -35,7 +35,7 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-          
+            
           <Route 
             path="/user" 
             element={
@@ -44,15 +44,16 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-         <Route path='/guest' element={
-           <ProtectedRoute roles={['admin', 'user', 'guest']}>
-           <Homepage />
-         </ProtectedRoute>
-         }
-         ></Route>
+          <Route path='/guest' element={
+            <ProtectedRoute roles={['admin', 'user', 'guest']}>
+              <Homepage />
+            </ProtectedRoute>
+          }
+          ></Route>
 
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 

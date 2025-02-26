@@ -14,25 +14,65 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Set up axios interceptor to handle token expiration
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      validateToken();
-    } else {
-      setLoading(false);
-    }
+    const interceptor = api.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && error.response.status === 401) {
+          // Only logout if it's truly an authentication error
+          // and not just a validation error during initial load
+          if (error.config.url !== '/auth/validate') {
+            logout();
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      // Clean up interceptor on unmount
+      api.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  // Check authentication status on app load
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        try {
+          await validateToken();
+        } catch (error) {
+          console.error("Token validation failed:", error);
+          // Don't logout here - just set loading to false
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    checkAuthStatus();
   }, []);
 
   const validateToken = async () => {
     try {
       const response = await api.get('/auth/validate');
       setUser(response.data);
-    } catch (error) {
-      localStorage.removeItem('token');
-      delete api.defaults.headers.common['Authorization'];
-    } finally {
       setLoading(false);
+      return true;
+    } catch (error) {
+      console.error("Token validation error:", error.response?.data || error.message);
+      // Important: Only remove token if there's a clear authentication error
+      if (error.response && error.response.status === 401) {
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        setUser(null);
+      }
+      setLoading(false);
+      return false;
     }
   };
 
@@ -88,7 +128,8 @@ export const AuthProvider = ({ children }) => {
       login,
       register,
       logout,
-      hasRole
+      hasRole,
+      validateToken // Export this so we can manually validate when needed
     }}>
       {children}
     </AuthContext.Provider>
