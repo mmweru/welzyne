@@ -6,25 +6,16 @@ const ProtectedRoute = ({ children, roles }) => {
   const { user, loading, initialized, hasRole, validateToken } = useAuth();
   const location = useLocation();
   const [isValidating, setIsValidating] = useState(true);
-  const [validationComplete, setValidationComplete] = useState(false);
 
   useEffect(() => {
-    // Only try to validate if we're initialized but not authenticated yet
-    if (initialized && !user && localStorage.getItem('token')) {
-      setIsValidating(true);
-      validateToken()
-        .then(() => {
-          setValidationComplete(true);
-          setIsValidating(false);
-        })
-        .catch(() => {
-          setValidationComplete(true);
-          setIsValidating(false);
-        });
-    } else {
-      setValidationComplete(true);
+    const validateAuth = async () => {
+      if (initialized && !user && localStorage.getItem('token')) {
+        await validateToken();
+      }
       setIsValidating(false);
-    }
+    };
+
+    validateAuth();
   }, [initialized, user, validateToken]);
 
   // Show loading state during initial load or token validation
@@ -37,18 +28,13 @@ const ProtectedRoute = ({ children, roles }) => {
     );
   }
 
-  // Wait until validation is complete before making access decisions
-  if (!validationComplete) {
-    return null;
-  }
-
-  // Redirect to login if not authenticated (only after initialized and validation complete)
+  // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Check role-based access if roles are specified
-  if (roles && !hasRole(roles)) {
+  else if (roles && !hasRole(roles)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

@@ -15,28 +15,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Set up axios interceptor to handle token expiration
-  useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      response => response,
-      error => {
-        if (error.response && error.response.status === 401) {
-          // Only logout if it's truly an authentication error
-          // and not just a validation error during initial load
-          if (error.config.url !== '/auth/validate') {
-            logout();
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      // Clean up interceptor on unmount
-      api.interceptors.response.eject(interceptor);
-    };
-  }, []);
-
   // Check authentication status on app load
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -60,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       setInitialized(true);
     };
-    
+
     checkAuthStatus();
   }, []);
 
@@ -71,7 +49,7 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Token validation error:", error.response?.data || error.message);
-      // Important: Only remove token if there's a clear authentication error
+      // Only remove token if there's a clear authentication error
       if (error.response && error.response.status === 401) {
         localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
