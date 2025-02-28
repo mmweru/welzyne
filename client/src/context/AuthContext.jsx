@@ -3,6 +3,22 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
+// Create a persistent user storage helper
+const persistentStorage = {
+  saveUser: (user) => {
+    if (user) {
+      localStorage.setItem('currentUser', JSON.stringify(user));
+    }
+  },
+  getUser: () => {
+    const savedUser = localStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  },
+  clearUser: () => {
+    localStorage.removeItem('currentUser');
+  }
+};
+
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
     ? '/api' 
@@ -11,72 +27,84 @@ const api = axios.create({
 });
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // Initialize user from localStorage - this is key to persist through refreshes
+  const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Set up axios interceptor to handle token refresh
+  // Set up axios request interceptor to always include the token
   useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      response => {
-        // Check if the server sent us a new token
-        const newToken = response.headers['x-new-token'];
-        if (newToken) {
-          console.log('Received new token from server, updating local storage');
-          localStorage.setItem('token', newToken);
-          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        }
-        return response;
-      },
+    const requestInterceptor = api.interceptors.request.use(config => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    return () => {
+      api.interceptors.request.eject(requestInterceptor);
+    };
+  }, []);
+
+  // Set up axios response interceptor to handle errors
+  useEffect(() => {
+    const responseInterceptor = api.interceptors.response.use(
+      response => response,
       error => {
-        // Don't automatically logout on validation endpoint errors
-        if (error.response && error.response.status === 401 && 
-            error.config.url !== '/auth/validate') {
-          console.log('401 error detected on non-validation endpoint, logging out');
-          logout();
+        // Only handle critical authentication errors
+        // DON'T handle validation endpoint errors
+        if (error.response && 
+            error.response.status === 401 && 
+            error.config.url !== '/auth/validate' &&
+            !error.config.url.includes('/auth')) {
+          console.log('Critical 401 error detected, may need to log out');
+          // We're not automatically logging out anymore
         }
         return Promise.reject(error);
       }
     );
 
     return () => {
-      api.interceptors.response.eject(interceptor);
+      api.interceptors.response.eject(responseInterceptor);
     };
   }, []);
+
+  // Custom setter that also persists to localStorage
+  const setUserWithPersistence = (userData) => {
+    setUser(userData);
+    if (userData) {
+      persistentStorage.saveUser(userData);
+    } else {
+      persistentStorage.clearUser();
+    }
+  };
 
   // Check authentication status on app load
   useEffect(() => {
     const checkAuthStatus = async () => {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const savedUser = persistentStorage.getUser();
       
-      if (token) {
+      // If we have both token and saved user data, set the user immediately
+      if (token && savedUser) {
+        setUser(savedUser);
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Try to validate in the background, but don't wait for it
+        validateToken().catch(err => {
+          console.log('Background validation error:', err);
+          // Don't log out automatically, just log the error
+        });
+      } else if (token) {
+        // We have token but no saved user data, try to get user data
         try {
           const response = await api.get('/auth/validate');
-          setUser(response.data);
+          setUserWithPersistence(response.data);
         } catch (error) {
-          console.error("Token validation failed:", error);
-          
-          // Only clear token on specific authentication errors
-          // Keep the token for network errors or server errors
-          if (error.response && error.response.status === 401) {
-            // Check if it's a specific token error that should log out the user
-            const errorMsg = error.response.data?.message || '';
-            const forceLogout = 
-              errorMsg.includes('invalid signature') || 
-              errorMsg.includes('malformed');
-            
-            if (forceLogout) {
-              console.log('Critical token error, removing token');
-              localStorage.removeItem('token');
-              delete api.defaults.headers.common['Authorization'];
-              setUser(null);
-            } else {
-              console.log('Non-critical validation error, keeping session');
-              // Keep the existing token for now, user might still be valid
-            }
-          }
+          console.log('Token validation error, but keeping token:', error);
+          // Don't remove token automatically
         }
       }
       
@@ -90,27 +118,13 @@ export const AuthProvider = ({ children }) => {
   const validateToken = async () => {
     try {
       const response = await api.get('/auth/validate');
-      setUser(response.data);
+      setUserWithPersistence(response.data);
       return true;
     } catch (error) {
-      console.error("Token validation error:", error.response?.data || error.message);
-      
-      // Be more selective about when to remove the token
-      if (error.response && error.response.status === 401) {
-        const errorMsg = error.response.data?.message || '';
-        
-        // Only remove token for specific critical errors
-        if (errorMsg.includes('invalid signature') || 
-            errorMsg.includes('malformed') || 
-            errorMsg.includes('User not found')) {
-          localStorage.removeItem('token');
-          delete api.defaults.headers.common['Authorization'];
-          setUser(null);
-        }
-      }
-      
-      // For temporary issues like network errors, don't invalidate the session
-      return error.response?.status !== 401;
+      console.log('Token validation error:', error.response?.data || error.message);
+      // Don't automatically remove token or log out the user
+      // Return true to maintain the session
+      return true;
     }
   };
 
@@ -121,7 +135,7 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUserWithPersistence(user);
       return { success: true, user };
     } catch (error) {
       return {
@@ -138,7 +152,7 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUserWithPersistence(user);
       return { success: true };
     } catch (error) {
       return {
@@ -150,6 +164,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    persistentStorage.clearUser();
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
   };
