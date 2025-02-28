@@ -45,19 +45,16 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
-          const isValid = await validateToken();
-          if (!isValid) {
-            // Clear invalid token
+          const response = await api.get('/auth/validate');
+          setUser(response.data);
+        } catch (error) {
+          console.error("Token validation failed:", error);
+          // Only remove token if there's a clear authentication error
+          if (error.response && error.response.status === 401) {
             localStorage.removeItem('token');
             delete api.defaults.headers.common['Authorization'];
             setUser(null);
           }
-        } catch (error) {
-          console.error("Token validation failed:", error);
-          // Clear invalid token
-          localStorage.removeItem('token');
-          delete api.defaults.headers.common['Authorization'];
-          setUser(null);
         }
       }
       setLoading(false);
@@ -138,7 +135,7 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
       hasRole,
-      validateToken // Export this so we can manually validate when needed
+      validateToken
     }}>
       {children}
     </AuthContext.Provider>
