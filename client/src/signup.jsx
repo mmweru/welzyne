@@ -66,11 +66,10 @@ const Signup = () => {
           />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email (optional)"
             className="w-full p-2 rounded-lg bg-gray-800 text-white"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
           />
           <input
             type="tel"
@@ -78,7 +77,6 @@ const Signup = () => {
             className="w-full p-2 rounded-lg bg-gray-800 text-white"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            required
           />
           <input
             type="password"

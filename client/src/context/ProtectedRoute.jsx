@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Adjust the path as needed
+import { useAuth } from './AuthContext'; // Adjust the path as needed
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading, initialized, hasRole, validateToken } = useAuth();
