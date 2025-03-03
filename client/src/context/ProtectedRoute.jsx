@@ -1,4 +1,3 @@
-// ProtectedRoute.jsx
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
@@ -30,13 +29,6 @@ const ProtectedRoute = ({ children, roles = [] }) => {
         return;
       }
       
-      // If we have a token but no specific roles required, the user is authorized
-      if (!roles || roles.length === 0) {
-        setIsAuthorized(true);
-        setAuthChecked(true);
-        return;
-      }
-      
       // If we have roles to check and we have user data, check role-based access
       if (user) {
         // Check if user has the required role
@@ -47,16 +39,14 @@ const ProtectedRoute = ({ children, roles = [] }) => {
       }
       
       // If we have a token but user data is still loading, we'll wait
-      // This prevents premature redirects during page refreshes
       if (hasToken && loading) {
-        setIsAuthorized(true); // Assume authorized while loading
+        setIsAuthorized(false); // Don't assume authorized while loading
         setAuthChecked(false); // We haven't finished checking yet
         return;
       }
       
-      // Default to authorized with token during initialization
-      // This is especially important during page refreshes
-      setIsAuthorized(true);
+      // Default to not authorized if we have a token but no user data
+      setIsAuthorized(false);
       setAuthChecked(true);
     };
 
@@ -82,9 +72,12 @@ const ProtectedRoute = ({ children, roles = [] }) => {
     if (!localStorage.getItem('token')) {
       return <Navigate to="/login" state={{ from: location }} replace />;
     }
+    
+    // User is logged in but doesn't have the required role
+    return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 
-  // User is authorized or we're being lenient during initial load
+  // User is authorized
   return children;
 };
 

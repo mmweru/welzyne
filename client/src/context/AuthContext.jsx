@@ -1,4 +1,3 @@
-// AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
@@ -68,10 +67,9 @@ export const AuthProvider = ({ children }) => {
         return response;
       },
       error => {
-        // Don't automatically log out on auth errors
+        // Log but don't automatically log out on auth errors
         if (error.response && error.response.status === 401) {
           console.log('401 error detected, but not logging out');
-          // We're not automatically logging out anymore
         }
         return Promise.reject(error);
       }
@@ -120,11 +118,16 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await api.get('/auth/validate');
           if (response.data && !response.data.temporaryAccess) {
+            // Update user data with latest from server
             setUserWithPersistence(response.data);
           }
         } catch (error) {
-          console.log('Token validation error, but keeping token:', error);
-          // Don't invalidate the session on validation errors
+          console.log('Token validation error:', error);
+          // If we can't validate the token but have saved user data,
+          // keep the user logged in with the saved data
+          if (!savedUser) {
+            setUserWithPersistence(null);
+          }
         }
       } catch (error) {
         console.error("Auth check error:", error);
@@ -148,6 +151,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log('Token validation error:', error.response?.data || error.message);
       // Don't automatically remove token or log out the user
+      // Keep using the persisted user data
       return true;
     }
   }, [setUserWithPersistence]);
@@ -204,7 +208,7 @@ export const AuthProvider = ({ children }) => {
     // If no roles are required, return true
     if (!requiredRoles || requiredRoles.length === 0) return true;
     
-    // Admin role has access to everything
+    // Admin role has access to everything (Welzyne is admin)
     if (user.role === 'admin') return true;
     
     // Check if user's role is in the required roles

@@ -12,12 +12,12 @@ import AdminDashboard from './AdminDashboard';
 import Unauthorized from './Unauthorized';
 import './style.css';
 
-
 const App = () => {
   return (
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Public routes accessible to everyone */}
           <Route path="/" element={<Homepage />} />
           <Route path="/who-we-are" element={<WhoWeAre />} />
           <Route path="/track-a-package" element={<TrackPackage />} />
@@ -25,8 +25,7 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-
-          {/* protected routes */}
+          {/* Admin Dashboard - only accessible by admin (Welzyne) */}
           <Route 
             path="/admin" 
             element={
@@ -35,22 +34,26 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-            
+          
+          {/* User Dashboard - accessible by both admin and regular users */}
           <Route 
             path="/user" 
             element={
-              <ProtectedRoute roles={['admin', 'user']}>
+              <ProtectedRoute roles={['user', 'admin']}>
                 <UserDashboard />
               </ProtectedRoute>
             } 
           />
-          <Route path='/guest' element={
-            <ProtectedRoute roles={['admin', 'user', 'guest']}>
-              <Homepage />
-            </ProtectedRoute>
-          }
-          ></Route>
-
+          
+          {/* Guest route - accessible by admin, user, and guest roles */}
+          <Route 
+            path="/guest" 
+            element={
+              <ProtectedRoute roles={['admin', 'user', 'guest']}>
+                <Homepage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>
