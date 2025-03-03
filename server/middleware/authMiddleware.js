@@ -1,4 +1,3 @@
-// Robust authMiddleware.js
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
 
@@ -21,8 +20,6 @@ const verifyToken = async (req, res, next) => {
       if (!user) {
         console.log('User not found but token was valid, allowing request anyway');
         // Adding a basic user object to allow the request to proceed
-        // This is a trade-off for persistence but could be security risk
-        // You may want to adjust this based on your security requirements
         req.user = {
           _id: decoded.id,
           role: decoded.role || 'user', // Default to user role if not in token

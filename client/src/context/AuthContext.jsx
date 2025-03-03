@@ -50,7 +50,15 @@ export const AuthProvider = ({ children }) => {
   // Set up axios response interceptor to handle errors
   useEffect(() => {
     const responseInterceptor = api.interceptors.response.use(
-      response => response,
+      response => {
+        // Check if there's a new token in the headers
+        const newToken = response.headers['x-new-token'];
+        if (newToken) {
+          localStorage.setItem('token', newToken);
+          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        }
+        return response;
+      },
       error => {
         // Only handle critical authentication errors
         // DON'T handle validation endpoint errors
@@ -118,7 +126,11 @@ export const AuthProvider = ({ children }) => {
   const validateToken = async () => {
     try {
       const response = await api.get('/auth/validate');
-      setUserWithPersistence(response.data);
+      
+      // If response is successful, update user data
+      if (response.data && !response.data.temporaryAccess) {
+        setUserWithPersistence(response.data);
+      }
       return true;
     } catch (error) {
       console.log('Token validation error:', error.response?.data || error.message);
@@ -171,6 +183,14 @@ export const AuthProvider = ({ children }) => {
 
   const hasRole = (requiredRoles) => {
     if (!user) return false;
+    
+    // If no roles are required, return true
+    if (!requiredRoles || requiredRoles.length === 0) return true;
+    
+    // Admin role has access to everything
+    if (user.role === 'admin') return true;
+    
+    // Check if user's role is in the required roles
     return requiredRoles.includes(user.role);
   };
 
