@@ -203,14 +203,18 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
   };
 
+
   const hasRole = useCallback((requiredRoles) => {
     if (!user) return false;
     
     // If no roles are required, return true
     if (!requiredRoles || requiredRoles.length === 0) return true;
     
-    // Special handling for admin role (Welzyne) - has access to everything
-    if (user.role === 'admin' || user.username === 'Welzyne') return true;
+    // Special handling for admin role
+    // Check both role and username to be safe
+    if (user.role === 'admin' || user.username === 'Welzyne') {
+      return true;
+    }
     
     // Check if user's role is in the required roles
     return Array.isArray(requiredRoles) 

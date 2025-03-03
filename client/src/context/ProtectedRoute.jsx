@@ -5,8 +5,6 @@ import { useAuth } from './AuthContext';
 const ProtectedRoute = ({ children, roles = [] }) => {
   const { user, loading, initialized, hasRole, saveLastVisitedRoute } = useAuth();
   const location = useLocation();
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
 
   // Save current path on mount and when it changes
   useEffect(() => {
@@ -16,48 +14,8 @@ const ProtectedRoute = ({ children, roles = [] }) => {
     }
   }, [location.pathname, saveLastVisitedRoute]);
 
-  useEffect(() => {
-    // Function to check if the user is allowed to access this route
-    const checkAuthorization = () => {
-      // Check if we have a token (for authentication)
-      const hasToken = !!localStorage.getItem('token');
-      
-      // If no token, clearly not authorized
-      if (!hasToken) {
-        setIsAuthorized(false);
-        setAuthChecked(true);
-        return;
-      }
-      
-      // If we have user data, check role-based access
-      if (user) {
-        // Check if user has the required role
-        const authorized = hasRole(roles);
-        setIsAuthorized(authorized);
-        setAuthChecked(true);
-        return;
-      }
-      
-      // If we have a token but user data is still loading, we'll wait
-      if (hasToken && loading) {
-        setIsAuthorized(false); // Don't assume authorized while loading
-        setAuthChecked(false); // We haven't finished checking yet
-        return;
-      }
-      
-      // Default to not authorized if we can't confirm
-      setIsAuthorized(false);
-      setAuthChecked(true);
-    };
-
-    // Only run authorization check when initialized
-    if (initialized) {
-      checkAuthorization();
-    }
-  }, [initialized, user, roles, hasRole, loading]);
-
-  // Show loading during initialization or when checking auth
-  if (loading || !initialized || !authChecked) {
+  // Show loading indicator during initialization or when loading user data
+  if (!initialized || loading) {
     return (
       <div className="auth-loading">
         <div className="spinner"></div>
@@ -66,14 +24,28 @@ const ProtectedRoute = ({ children, roles = [] }) => {
     );
   }
 
-  // Handle authorization result
-  if (!isAuthorized) {
-    // No token found, redirect to login
-    if (!localStorage.getItem('token')) {
-      return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-    
-    // Token exists but user doesn't have required role, redirect to unauthorized
+  // Handle authorization after loading is complete
+  const hasToken = !!localStorage.getItem('token');
+
+  // No token, redirect to login
+  if (!hasToken) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Has token but no user data (shouldn't happen after loading completes)
+  if (!user) {
+    // This could happen if token exists but user data couldn't be retrieved
+    // We could either show loading again or redirect to login
+    return (
+      <div className="auth-loading">
+        <div className="spinner"></div>
+        <p>Retrieving your profile...</p>
+      </div>
+    );
+  }
+
+  // Check role-based authorization
+  if (!hasRole(roles)) {
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 
