@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+// AuthContext.jsx
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -16,6 +17,12 @@ const persistentStorage = {
   },
   clearUser: () => {
     localStorage.removeItem('currentUser');
+  },
+  saveLastVisitedRoute: (route) => {
+    localStorage.setItem('lastVisitedRoute', route);
+  },
+  getLastVisitedRoute: () => {
+    return localStorage.getItem('lastVisitedRoute') || '/';
   }
 };
 
@@ -27,10 +34,13 @@ const api = axios.create({
 });
 
 export const AuthProvider = ({ children }) => {
+  // Initialize user from localStorage - this is key to persist through refreshes
   const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
+  // Set up axios request interceptor to always include the token
   useEffect(() => {
     const requestInterceptor = api.interceptors.request.use(config => {
       const token = localStorage.getItem('token');
@@ -45,15 +55,23 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Set up axios response interceptor to handle errors
   useEffect(() => {
     const responseInterceptor = api.interceptors.response.use(
-      response => response,
+      response => {
+        // Check if there's a new token in the headers
+        const newToken = response.headers['x-new-token'];
+        if (newToken) {
+          localStorage.setItem('token', newToken);
+          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        }
+        return response;
+      },
       error => {
-        if (error.response && 
-            error.response.status === 401 && 
-            error.config.url !== '/auth/validate' &&
-            !error.config.url.includes('/auth')) {
-          console.log('Critical 401 error detected, may need to log out');
+        // Don't automatically log out on auth errors
+        if (error.response && error.response.status === 401) {
+          console.log('401 error detected, but not logging out');
+          // We're not automatically logging out anymore
         }
         return Promise.reject(error);
       }
@@ -64,54 +82,75 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const setUserWithPersistence = (userData) => {
+  // Custom setter that also persists to localStorage
+  const setUserWithPersistence = useCallback((userData) => {
     setUser(userData);
     if (userData) {
       persistentStorage.saveUser(userData);
     } else {
       persistentStorage.clearUser();
     }
-  };
+  }, []);
 
+  // Check authentication status on app load
   useEffect(() => {
     const checkAuthStatus = async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const savedUser = persistentStorage.getUser();
-      
-      if (token && savedUser) {
-        setUser(savedUser);
+      try {
+        const token = localStorage.getItem('token');
+        const savedUser = persistentStorage.getUser();
+        
+        if (!token) {
+          // No token, clear any stale user data
+          setUserWithPersistence(null);
+          setLoading(false);
+          setInitialized(true);
+          return;
+        }
+        
+        // Set API authorization header
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        validateToken().catch(err => {
-          console.log('Background validation error:', err);
-        });
-      } else if (token) {
+        // If we have saved user data, use it immediately
+        if (savedUser) {
+          setUserWithPersistence(savedUser);
+        }
+        
+        // Then try to validate token in the background
         try {
           const response = await api.get('/auth/validate');
-          setUserWithPersistence(response.data);
+          if (response.data && !response.data.temporaryAccess) {
+            setUserWithPersistence(response.data);
+          }
         } catch (error) {
           console.log('Token validation error, but keeping token:', error);
+          // Don't invalidate the session on validation errors
         }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setLoading(false);
+        setInitialized(true);
       }
-      
-      setLoading(false);
-      setInitialized(true);
     };
 
     checkAuthStatus();
-  }, []);
+  }, [setUserWithPersistence]);
 
-  const validateToken = async () => {
+  const validateToken = useCallback(async () => {
     try {
       const response = await api.get('/auth/validate');
-      setUserWithPersistence(response.data);
+      
+      if (response.data && !response.data.temporaryAccess) {
+        setUserWithPersistence(response.data);
+      }
       return true;
     } catch (error) {
       console.log('Token validation error:', error.response?.data || error.message);
+      // Don't automatically remove token or log out the user
       return true;
     }
-  };
+  }, [setUserWithPersistence]);
 
   const login = async (credentials) => {
     try {
@@ -121,8 +160,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
+      setAuthError(null);
       return { success: true, user };
     } catch (error) {
+      setAuthError(error.response?.data?.message || 'Login failed');
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed'
@@ -138,8 +179,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
+      setAuthError(null);
       return { success: true };
     } catch (error) {
+      setAuthError(error.response?.data?.message || 'Registration failed');
       return {
         success: false,
         error: error.response?.data?.message || 'Registration failed'
@@ -152,23 +195,45 @@ export const AuthProvider = ({ children }) => {
     persistentStorage.clearUser();
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    setAuthError(null);
   };
 
-  const hasRole = (requiredRoles) => {
+  const hasRole = useCallback((requiredRoles) => {
     if (!user) return false;
-    return requiredRoles.includes(user.role);
-  };
+    
+    // If no roles are required, return true
+    if (!requiredRoles || requiredRoles.length === 0) return true;
+    
+    // Admin role has access to everything
+    if (user.role === 'admin') return true;
+    
+    // Check if user's role is in the required roles
+    return Array.isArray(requiredRoles) 
+      ? requiredRoles.includes(user.role) 
+      : user.role === requiredRoles;
+  }, [user]);
+
+  const saveLastVisitedRoute = useCallback((route) => {
+    persistentStorage.saveLastVisitedRoute(route);
+  }, []);
+
+  const getLastVisitedRoute = useCallback(() => {
+    return persistentStorage.getLastVisitedRoute();
+  }, []);
 
   return (
     <AuthContext.Provider value={{
       user,
       loading,
       initialized,
+      authError,
       login,
       register,
       logout,
       hasRole,
-      validateToken
+      validateToken,
+      saveLastVisitedRoute,
+      getLastVisitedRoute
     }}>
       {children}
     </AuthContext.Provider>
