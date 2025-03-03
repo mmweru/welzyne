@@ -3,10 +3,18 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext'; // Adjust path as needed
 
 const ProtectedRoute = ({ children, roles = [] }) => {
-  const { user, loading, initialized, hasRole } = useAuth();
+  const { user, loading, initialized, hasRole, saveLastVisitedRoute } = useAuth();
   const location = useLocation();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+
+  // Save current path on mount and when it changes
+  useEffect(() => {
+    if (location.pathname !== '/unauthorized' && location.pathname !== '/login') {
+      saveLastVisitedRoute(location.pathname);
+      console.log('Saved last route:', location.pathname);
+    }
+  }, [location.pathname, saveLastVisitedRoute]);
 
   useEffect(() => {
     // Simple function to check if the user is allowed to access this route
@@ -37,8 +45,8 @@ const ProtectedRoute = ({ children, roles = [] }) => {
         return;
       }
       
-      // If we have a token but no user data yet, be lenient
-      // Assume authorized for now, proper role check will happen when user data loads
+      // If we have a token but no user data yet, be very lenient
+      // This is especially important during page refreshes
       setIsAuthorized(true);
       setAuthChecked(true);
     };
@@ -67,7 +75,9 @@ const ProtectedRoute = ({ children, roles = [] }) => {
     
     // Has token but role check failed - only redirect if we have user data
     // and have explicitly determined they don't have the required role
+    // This is much more lenient during page refreshes
     if (roles && roles.length > 0 && user && !hasRole(roles)) {
+      console.log("Redirecting to unauthorized: User role doesn't match required roles");
       return <Navigate to="/unauthorized" replace />;
     }
   }

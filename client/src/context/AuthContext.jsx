@@ -16,6 +16,12 @@ const persistentStorage = {
   },
   clearUser: () => {
     localStorage.removeItem('currentUser');
+  },
+  saveLastVisitedRoute: (route) => {
+    localStorage.setItem('lastVisitedRoute', route);
+  },
+  getLastVisitedRoute: () => {
+    return localStorage.getItem('lastVisitedRoute') || '/';
   }
 };
 
@@ -31,6 +37,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   // Set up axios request interceptor to always include the token
   useEffect(() => {
@@ -66,8 +73,9 @@ export const AuthProvider = ({ children }) => {
             error.response.status === 401 && 
             error.config.url !== '/auth/validate' &&
             !error.config.url.includes('/auth')) {
-          console.log('Critical 401 error detected, may need to log out');
+          console.log('Critical 401 error detected, but not logging out');
           // We're not automatically logging out anymore
+          setAuthError('Authentication failed, but your session will be maintained.');
         }
         return Promise.reject(error);
       }
@@ -109,7 +117,12 @@ export const AuthProvider = ({ children }) => {
         // We have token but no saved user data, try to get user data
         try {
           const response = await api.get('/auth/validate');
-          setUserWithPersistence(response.data);
+          if (response.data && !response.data.temporaryAccess) {
+            setUserWithPersistence(response.data);
+          } else {
+            // If we got temporary access or empty data, still use the token
+            console.log('Using token with temporary access');
+          }
         } catch (error) {
           console.log('Token validation error, but keeping token:', error);
           // Don't remove token automatically
@@ -148,8 +161,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
+      setAuthError(null);
       return { success: true, user };
     } catch (error) {
+      setAuthError(error.response?.data?.message || 'Login failed');
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed'
@@ -165,8 +180,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
+      setAuthError(null);
       return { success: true };
     } catch (error) {
+      setAuthError(error.response?.data?.message || 'Registration failed');
       return {
         success: false,
         error: error.response?.data?.message || 'Registration failed'
@@ -179,6 +196,7 @@ export const AuthProvider = ({ children }) => {
     persistentStorage.clearUser();
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    setAuthError(null);
   };
 
   const hasRole = (requiredRoles) => {
@@ -191,7 +209,7 @@ export const AuthProvider = ({ children }) => {
     if (user.role === 'admin') return true;
     
     // Check if user's role is in the required roles
-    return requiredRoles.includes(user.role);
+    return Array.isArray(requiredRoles) ? requiredRoles.includes(user.role) : user.role === requiredRoles;
   };
 
   return (
@@ -199,11 +217,14 @@ export const AuthProvider = ({ children }) => {
       user,
       loading,
       initialized,
+      authError,
       login,
       register,
       logout,
       hasRole,
-      validateToken
+      validateToken,
+      saveLastVisitedRoute: persistentStorage.saveLastVisitedRoute,
+      getLastVisitedRoute: persistentStorage.getLastVisitedRoute
     }}>
       {children}
     </AuthContext.Provider>
