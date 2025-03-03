@@ -25,7 +25,7 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Admin Dashboard - only accessible by admin (Welzyne) */}
+          {/* Admin-only route */}
           <Route 
             path="/admin" 
             element={
@@ -35,7 +35,7 @@ const App = () => {
             } 
           />
           
-          {/* User Dashboard - accessible by both admin and regular users */}
+          {/* User routes - accessible by users and admins */}
           <Route 
             path="/user" 
             element={
@@ -45,11 +45,11 @@ const App = () => {
             } 
           />
           
-          {/* Guest route - accessible by admin, user, and guest roles */}
+          {/* Guest routes - accessible by guests, users and admins */}
           <Route 
-            path="/guest" 
+            path='/guest' 
             element={
-              <ProtectedRoute roles={['admin', 'user', 'guest']}>
+              <ProtectedRoute roles={['guest', 'user', 'admin']}>
                 <Homepage />
               </ProtectedRoute>
             }

@@ -29,7 +29,7 @@ const ProtectedRoute = ({ children, roles = [] }) => {
         return;
       }
       
-      // If we have roles to check and we have user data, check role-based access
+      // If we have user data, check role-based access
       if (user) {
         // Check if user has the required role
         const authorized = hasRole(roles);
@@ -45,7 +45,7 @@ const ProtectedRoute = ({ children, roles = [] }) => {
         return;
       }
       
-      // Default to not authorized if we have a token but no user data
+      // Default to not authorized if we can't confirm
       setIsAuthorized(false);
       setAuthChecked(true);
     };
@@ -73,7 +73,7 @@ const ProtectedRoute = ({ children, roles = [] }) => {
       return <Navigate to="/login" state={{ from: location }} replace />;
     }
     
-    // User is logged in but doesn't have the required role
+    // Token exists but user doesn't have required role, redirect to unauthorized
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 

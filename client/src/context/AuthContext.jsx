@@ -67,9 +67,10 @@ export const AuthProvider = ({ children }) => {
         return response;
       },
       error => {
-        // Log but don't automatically log out on auth errors
+        // Don't automatically log out on auth errors
         if (error.response && error.response.status === 401) {
           console.log('401 error detected, but not logging out');
+          // We're not automatically logging out anymore
         }
         return Promise.reject(error);
       }
@@ -117,16 +118,17 @@ export const AuthProvider = ({ children }) => {
         // Then try to validate token in the background
         try {
           const response = await api.get('/auth/validate');
-          if (response.data && !response.data.temporaryAccess) {
-            // Update user data with latest from server
+          if (response.data) {
+            // Update user data from server response
             setUserWithPersistence(response.data);
           }
         } catch (error) {
           console.log('Token validation error:', error);
-          // If we can't validate the token but have saved user data,
-          // keep the user logged in with the saved data
+          // If validation fails, keep using cached user data
+          // but mark as potentially stale
           if (!savedUser) {
-            setUserWithPersistence(null);
+            // If we don't have saved user data and validation fails, clear auth state
+            logout();
           }
         }
       } catch (error) {
@@ -144,15 +146,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.get('/auth/validate');
       
-      if (response.data && !response.data.temporaryAccess) {
+      if (response.data) {
         setUserWithPersistence(response.data);
       }
       return true;
     } catch (error) {
       console.log('Token validation error:', error.response?.data || error.message);
       // Don't automatically remove token or log out the user
-      // Keep using the persisted user data
-      return true;
+      return false;
     }
   }, [setUserWithPersistence]);
 
@@ -208,8 +209,8 @@ export const AuthProvider = ({ children }) => {
     // If no roles are required, return true
     if (!requiredRoles || requiredRoles.length === 0) return true;
     
-    // Admin role has access to everything (Welzyne is admin)
-    if (user.role === 'admin') return true;
+    // Special handling for admin role (Welzyne) - has access to everything
+    if (user.role === 'admin' || user.username === 'Welzyne') return true;
     
     // Check if user's role is in the required roles
     return Array.isArray(requiredRoles) 
