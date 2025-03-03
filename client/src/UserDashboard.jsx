@@ -12,7 +12,7 @@ const api = axios.create({
 });
 
 const UserDashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, setUser } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showTrackingResult, setShowTrackingResult] = useState(false);
@@ -24,6 +24,12 @@ const UserDashboard = () => {
     { title: 'In Transit', value: '0', icon: Truck, color: 'bg-green-500' },
     { title: 'Pending', value: '0', icon: Clock, color: 'bg-yellow-500' }
   ]);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    username: user?.username || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
+  });
 
   // Fetch user's orders
   useEffect(() => {
@@ -105,6 +111,38 @@ const UserDashboard = () => {
       ...step,
       completed: index <= currentIndex
     }));
+  };
+
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+    setProfileForm({
+      username: user?.username || '',
+      email: user?.email || '',
+      phone: user?.phone || ''
+    });
+  };
+
+  const handleProfileFormChange = (e) => {
+    const { name, value } = e.target;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await api.put(
+        `/users/${user._id}`,
+        profileForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setUser(response.data); // Update user in AuthContext
+      setIsEditingProfile(false);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert('Failed to update profile. Please try again.');
+    }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
@@ -259,18 +297,76 @@ const UserDashboard = () => {
         {showProfileDetails && (
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white animate-fadeIn">
             <h3 className="text-xl font-bold mb-4">Profile Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div>
-                <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
-                <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
-                <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+            {isEditingProfile ? (
+              <form onSubmit={handleProfileUpdate}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div>
+                    <label className="block mb-2">Name:</label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={profileForm.username}
+                      onChange={handleProfileFormChange}
+                      className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2">Email:</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={profileForm.email}
+                      onChange={handleProfileFormChange}
+                      className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2">Phone:</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={profileForm.phone}
+                      onChange={handleProfileFormChange}
+                      className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-4">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 rounded-lg text-white transition-colors duration-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div>
+                  <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
+                  <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
+                  <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
+                  <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
+                  <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+                </div>
+                <button
+                  onClick={handleEditProfile}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
+                >
+                  Edit Profile
+                </button>
               </div>
-              <div>
-                <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
-                <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
-                <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
