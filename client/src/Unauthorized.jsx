@@ -1,42 +1,12 @@
-import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import React from 'react';
 
 const Unauthorized = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { getLastVisitedRoute, user } = useAuth();
-  
-  // Detect if we came from a direct navigation or from the app
-  useEffect(() => {
-    // Mark this as a direct navigation if there's no state
-    if (!location.state) {
-      navigate(location.pathname, { 
-        replace: true, 
-        state: { fromDirectNavigation: true } 
-      });
-    }
-  }, [location, navigate]);
-
   const goBack = () => {
-    const lastRoute = getLastVisitedRoute();
-    if (lastRoute && lastRoute !== '/unauthorized') {
-      navigate(lastRoute);
-    } else {
-      navigate(-1); // Fallback to browser history
-    }
+    window.history.back(); // Navigate back using browser history
   };
 
   const goToHomepage = () => {
-    navigate('/');
-  };
-
-  const goToDashboard = () => {
-    if (user && user.role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
-    }
+    window.location.href = '/'; // Redirect to homepage
   };
 
   return (
@@ -95,15 +65,8 @@ const Unauthorized = () => {
           </button>
 
           <button
-            onClick={goToDashboard}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors duration-200 mt-2"
-          >
-            Go to Dashboard
-          </button>
-
-          <button
             onClick={goToHomepage}
-            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 mt-2"
+            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
           >
             Return to Homepage
           </button>
