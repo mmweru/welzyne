@@ -17,7 +17,7 @@ const App = () => {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public routes accessible to everyone */}
+          {/* Public Routes */}
           <Route path="/" element={<Homepage />} />
           <Route path="/who-we-are" element={<WhoWeAre />} />
           <Route path="/track-a-package" element={<TrackPackage />} />
@@ -25,32 +25,31 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Admin-only route */}
-          <Route 
-            path="/admin" 
+          {/* Protected Routes */}
+          <Route
+            path="/admin"
             element={
               <ProtectedRoute roles={['admin']}>
                 <AdminDashboard />
               </ProtectedRoute>
-            } 
+            }
           />
-          
-          {/* User routes - accessible by users and admins */}
-          <Route 
-            path="/user" 
+
+          <Route
+            path="/user"
             element={
               <ProtectedRoute roles={['user', 'admin']}>
                 <UserDashboard />
               </ProtectedRoute>
-            } 
+            }
           />
-          
-          {/* Guest routes - accessible by guests, users and admins */}
-          <Route 
-            path='/guest' 
+
+          {/* Fallback for unauthorized access */}
+          <Route
+            path="*"
             element={
-              <ProtectedRoute roles={['guest', 'user', 'admin']}>
-                <Homepage />
+              <ProtectedRoute>
+                <Unauthorized />
               </ProtectedRoute>
             }
           />
