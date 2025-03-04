@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Package, Truck, Clock, User, ChevronRight, Search, Edit, Save, X } from './CustomIcons';
+import { Package, Truck, Clock, User, ChevronRight, Search } from './CustomIcons';
 import { useAuth } from './context/AuthContext';
 
 // Create axios instance with base URL
@@ -12,21 +12,11 @@ const api = axios.create({
 });
 
 const UserDashboard = () => {
-  const { user, loading, updateProfile } = useAuth();
+  const { user, loading } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showTrackingResult, setShowTrackingResult] = useState(false);
   const [showProfileDetails, setShowProfileDetails] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [profileData, setProfileData] = useState({
-    username: '',
-    email: '',
-    phone: ''
-  });
-  const [updateStatus, setUpdateStatus] = useState({ 
-    message: '', 
-    type: '' // 'success' or 'error'
-  });
   const [orders, setOrders] = useState([]);
   const [recentDeliveries, setRecentDeliveries] = useState([]);
   const [deliveryStats, setDeliveryStats] = useState([
@@ -34,17 +24,6 @@ const UserDashboard = () => {
     { title: 'In Transit', value: '0', icon: Truck, color: 'bg-green-500' },
     { title: 'Pending', value: '0', icon: Clock, color: 'bg-yellow-500' }
   ]);
-
-  // Initialize profile data when user is loaded
-  useEffect(() => {
-    if (user) {
-      setProfileData({
-        username: user.username || '',
-        email: user.email || '',
-        phone: user.phone || ''
-      });
-    }
-  }, [user]);
 
   // Fetch user's orders
   useEffect(() => {
@@ -126,58 +105,6 @@ const UserDashboard = () => {
       ...step,
       completed: index <= currentIndex
     }));
-  };
-
-  const handleEditProfile = () => {
-    setEditingProfile(true);
-    setUpdateStatus({ message: '', type: '' });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingProfile(false);
-    // Reset to original user data
-    setProfileData({
-      username: user.username || '',
-      email: user.email || '',
-      phone: user.phone || ''
-    });
-    setUpdateStatus({ message: '', type: '' });
-  };
-
-  const handleProfileChange = (e) => {
-    const { name, value } = e.target;
-    setProfileData({
-      ...profileData,
-      [name]: value
-    });
-  };
-
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    setUpdateStatus({ message: 'Updating profile...', type: '' });
-    
-    try {
-      const result = await updateProfile(profileData);
-      
-      if (result.success) {
-        setUpdateStatus({ 
-          message: 'Profile updated successfully!', 
-          type: 'success' 
-        });
-        setEditingProfile(false);
-      } else {
-        setUpdateStatus({ 
-          message: result.error || 'Failed to update profile', 
-          type: 'error' 
-        });
-      }
-    } catch (error) {
-      setUpdateStatus({ 
-        message: 'An unexpected error occurred', 
-        type: 'error' 
-      });
-      console.error('Profile update error:', error);
-    }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
@@ -331,100 +258,19 @@ const UserDashboard = () => {
         {/* Profile Details */}
         {showProfileDetails && (
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white animate-fadeIn">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Profile Details</h3>
-              {!editingProfile ? (
-                <button 
-                  onClick={handleEditProfile}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors duration-300"
-                >
-                  <Edit size={18} />
-                  Edit Profile
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button 
-                    onClick={handleCancelEdit}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors duration-300"
-                  >
-                    <X size={18} />
-                    Cancel
-                  </button>
-                </div>
-              )}
+            <h3 className="text-xl font-bold mb-4">Profile Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div>
+                <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
+                <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
+                <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
+                <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
+                <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+              </div>
             </div>
-            
-            {/* Status Message */}
-            {updateStatus.message && (
-              <div className={`mb-4 p-3 rounded-lg ${
-                updateStatus.type === 'success' ? 'bg-green-500/20 text-green-300' : 
-                updateStatus.type === 'error' ? 'bg-red-500/20 text-red-300' : 
-                'bg-blue-500/20 text-blue-300'
-              }`}>
-                {updateStatus.message}
-              </div>
-            )}
-            
-            {editingProfile ? (
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 font-medium">Name</label>
-                    <input
-                      type="text"
-                      name="username"
-                      value={profileData.username}
-                      onChange={handleProfileChange}
-                      className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={profileData.email}
-                      onChange={handleProfileChange}
-                      className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 font-medium">Phone</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={profileData.phone}
-                      onChange={handleProfileChange}
-                      className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button 
-                    type="submit"
-                    className="flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 rounded-lg transition-colors duration-300"
-                  >
-                    <Save size={18} />
-                    Save Changes
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div>
-                  <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
-                  <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
-                  <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
-                  <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
-                  <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
