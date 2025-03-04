@@ -195,22 +195,30 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      // If email is being updated, it may need a different endpoint or special handling
-      const response = await api.put('/users/profile', profileData);
+      // Get the token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
-      // Assuming the API returns the updated user object
+      // Make the API request to update the profile
+      const response = await api.put('/users/profile', profileData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Get the updated user data from the response
       const updatedUser = response.data;
       
+      // Merge the updated data with the existing user object
+      const mergedUser = { ...user, ...updatedUser };
+      
       // Update the user in state and localStorage
-      setUserWithPersistence({
-        ...user,
-        ...updatedUser
-      });
+      setUserWithPersistence(mergedUser);
       
       return { 
         success: true, 
         message: 'Profile updated successfully',
-        user: updatedUser
+        user: mergedUser
       };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to update profile';
