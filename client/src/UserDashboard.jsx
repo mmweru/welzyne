@@ -1,18 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Package, Truck, Clock, User, ChevronRight, Search } from './CustomIcons';
+import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
-
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' 
-    ? '/api' 
-    : import.meta.env.VITE_API_URL,
-  withCredentials: true
-});
+import { User, Save, X } from './CustomIcons';
 
 const UserDashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, updateProfile } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showTrackingResult, setShowTrackingResult] = useState(false);
@@ -24,8 +15,20 @@ const UserDashboard = () => {
     { title: 'In Transit', value: '0', icon: Truck, color: 'bg-green-500' },
     { title: 'Pending', value: '0', icon: Clock, color: 'bg-yellow-500' }
   ]);
+  
+  // Add state for profile editing
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    username: user?.username || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
+  });
+  const [updateStatus, setUpdateStatus] = useState({ 
+    success: null, 
+    message: '' 
+  });
 
-  // Fetch user's orders
+  // Fetch user's orders (keeping existing code)
   useEffect(() => {
     if (user && !loading) {
       fetchUserOrders();
@@ -47,7 +50,19 @@ const UserDashboard = () => {
     }
   }, [user, loading]);
 
+  // Reset profile form when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      });
+    }
+  }, [user]);
+
   const fetchUserOrders = async () => {
+    // Keeping existing fetchUserOrders function
     try {
       const token = localStorage.getItem('token');
       const response = await api.get(`/orders/user/${user.email}`, {
@@ -84,6 +99,7 @@ const UserDashboard = () => {
   };
 
   const getTrackingStatus = () => {
+    // Keeping existing tracking function
     const order = orders.find(o => o.id === trackingNumber);
     if (!order) return [{ status: 'Order Not Found', date: '', completed: false }];
     const baseSteps = [
@@ -105,6 +121,49 @@ const UserDashboard = () => {
       ...step,
       completed: index <= currentIndex
     }));
+  };
+
+  // New function to handle form changes
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // New function to handle profile update submission
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setUpdateStatus({ success: null, message: 'Updating...' });
+    
+    try {
+      const result = await updateProfile(profileForm);
+      
+      if (result.success) {
+        setUpdateStatus({ 
+          success: true, 
+          message: 'Profile updated successfully!' 
+        });
+        
+        // Exit edit mode after successful update
+        setTimeout(() => {
+          setIsEditingProfile(false);
+          setUpdateStatus({ success: null, message: '' });
+        }, 2000);
+      } else {
+        setUpdateStatus({ 
+          success: false, 
+          message: result.error || 'Failed to update profile' 
+        });
+      }
+    } catch (error) {
+      setUpdateStatus({ 
+        success: false, 
+        message: 'An unexpected error occurred' 
+      });
+      console.error('Profile update error:', error);
+    }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
@@ -258,19 +317,128 @@ const UserDashboard = () => {
         {/* Profile Details */}
         {showProfileDetails && (
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white animate-fadeIn">
-            <h3 className="text-xl font-bold mb-4">Profile Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div>
-                <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
-                <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
-                <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
-              </div>
-              <div>
-                <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
-                <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
-                <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
-              </div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Profile Details</h3>
+              {!isEditingProfile ? (
+                <button 
+                  onClick={() => setIsEditingProfile(true)}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
+                >
+                  Edit Profile
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setIsEditingProfile(false);
+                      setUpdateStatus({ success: null, message: '' });
+                      // Reset form to current user data
+                      setProfileForm({
+                        username: user?.username || '',
+                        email: user?.email || '',
+                        phone: user?.phone || ''
+                      });
+                    }}
+                    className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white transition-colors duration-300 flex items-center"
+                  >
+                    <X size={16} className="mr-1" /> Cancel
+                  </button>
+                </div>
+              )}
             </div>
+            
+            {/* Status message for updates */}
+            {updateStatus.message && (
+              <div className={`mb-4 p-3 rounded-lg ${
+                updateStatus.success === true ? 'bg-green-500/20 text-green-400' : 
+                updateStatus.success === false ? 'bg-red-500/20 text-red-400' : 
+                'bg-blue-500/20 text-blue-400'
+              }`}>
+                {updateStatus.message}
+              </div>
+            )}
+            
+            {!isEditingProfile ? (
+              // Display mode
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div>
+                  <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
+                  <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
+                  <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
+                  <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
+                  <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+                </div>
+              </div>
+            ) : (
+              // Edit mode
+              <form onSubmit={handleProfileUpdate} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="username" className="block mb-1">Name</label>
+                      <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        value={profileForm.username}
+                        onChange={handleProfileChange}
+                        className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="email" className="block mb-1">Email</label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={profileForm.email}
+                        onChange={handleProfileChange}
+                        className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="phone" className="block mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={profileForm.phone}
+                        onChange={handleProfileChange}
+                        className="w-full p-3 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <p className="mb-1"><strong>Total Orders:</strong> {orders.length}</p>
+                    </div>
+                    <div>
+                      <p className="mb-1"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
+                    </div>
+                    <div>
+                      <p className="mb-1"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300 flex items-center"
+                  >
+                    <Save size={18} className="mr-2" /> Save Changes
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
 
