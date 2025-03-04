@@ -12,7 +12,7 @@ const api = axios.create({
 });
 
 const UserDashboard = () => {
-  const { user, loading, setUser } = useAuth();
+  const { user, loading, setUser, updateProfile  } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showTrackingResult, setShowTrackingResult] = useState(false);
@@ -30,6 +30,48 @@ const UserDashboard = () => {
     email: user?.email || '',
     phone: user?.phone || ''
   });
+  const [profileError, setProfileError] = useState(null);
+
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+    setProfileForm({
+      username: user?.username || '',
+      email: user?.email || '',
+      phone: user?.phone || ''
+    });
+    setProfileError(null); // Reset any previous errors
+  };
+
+  const handleProfileFormChange = (e) => {
+    const { name, value } = e.target;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileError(null);
+
+    try {
+      const result = await updateProfile(profileForm);
+      
+      if (result.success) {
+        setIsEditingProfile(false);
+        // Optional: You can show a success toast/alert here
+      } else {
+        setProfileError(result.error);
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setProfileError('An unexpected error occurred. Please try again.');
+    }
+  };
+
+  // In your render method, add error display:
+  {isEditingProfile && profileError && (
+    <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">
+      {profileError}
+    </div>
+  )}
 
   // Fetch user's orders
   useEffect(() => {
@@ -113,37 +155,6 @@ const UserDashboard = () => {
     }));
   };
 
-  const handleEditProfile = () => {
-    setIsEditingProfile(true);
-    setProfileForm({
-      username: user?.username || '',
-      email: user?.email || '',
-      phone: user?.phone || ''
-    });
-  };
-
-  const handleProfileFormChange = (e) => {
-    const { name, value } = e.target;
-    setProfileForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleProfileUpdate = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const response = await api.put(
-        `/users/${user._id}`,
-        profileForm,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setUser(response.data); // Update user in AuthContext
-      setIsEditingProfile(false);
-      alert('Profile updated successfully!');
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      alert('Failed to update profile. Please try again.');
-    }
-  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
 

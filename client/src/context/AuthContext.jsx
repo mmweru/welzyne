@@ -205,7 +205,35 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No authentication token found');
+        return {
+          success: false,
+          error: 'No authentication token found. Please log in again.'
+        };
+      }
+      
+      // Validate input
+      const { username, email, phone } = profileData;
+      
+      // Basic validations
+      if (!username || username.length < 2) {
+        return {
+          success: false,
+          error: 'Username must be at least 2 characters long.'
+        };
+      }
+  
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        return {
+          success: false,
+          error: 'Please provide a valid email address.'
+        };
+      }
+  
+      if (phone && !/^\+?[\d\s()-]{10,}$/.test(phone)) {
+        return {
+          success: false,
+          error: 'Please provide a valid phone number.'
+        };
       }
       
       const response = await api.put('/users/profile', profileData, {
@@ -223,7 +251,9 @@ export const AuthProvider = ({ children }) => {
         user: mergedUser
       };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to update profile';
+      const errorMessage = error.response?.data?.message || 
+        'Failed to update profile. Please check your connection and try again.';
+      
       console.error('Profile update error:', errorMessage);
       
       return {
