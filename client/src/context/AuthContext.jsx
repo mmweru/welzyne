@@ -49,8 +49,8 @@ const persistentStorage = {
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
-    ? '/api' 
-    : import.meta.env.VITE_API_URL,
+    ? 'https://welzyne.onrender.com/api' 
+    : import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true
 });
 
@@ -236,7 +236,8 @@ export const AuthProvider = ({ children }) => {
         };
       }
       
-      const response = await api.put('/users/profile', profileData, {
+      // Make sure to include the full path
+      const response = await api.put('/api/users/profile', profileData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -254,7 +255,7 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = error.response?.data?.message || 
         'Failed to update profile. Please check your connection and try again.';
       
-      console.error('Profile update error:', errorMessage);
+      console.error('Profile update error:', error.response || errorMessage);
       
       return {
         success: false,
