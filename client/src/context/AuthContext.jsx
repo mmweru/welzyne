@@ -6,22 +6,44 @@ const AuthContext = createContext(null);
 // Create a persistent user storage helper
 const persistentStorage = {
   saveUser: (user) => {
-    if (user) {
-      localStorage.setItem('currentUser', JSON.stringify(user));
+    try {
+      if (user) {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+      }
+    } catch (error) {
+      console.error('Failed to save user to localStorage:', error);
     }
   },
   getUser: () => {
-    const savedUser = localStorage.getItem('currentUser');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('currentUser');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (error) {
+      console.error('Failed to retrieve user from localStorage:', error);
+      return null;
+    }
   },
   clearUser: () => {
-    localStorage.removeItem('currentUser');
+    try {
+      localStorage.removeItem('currentUser');
+    } catch (error) {
+      console.error('Failed to clear user from localStorage:', error);
+    }
   },
   saveLastVisitedRoute: (route) => {
-    localStorage.setItem('lastVisitedRoute', route);
+    try {
+      localStorage.setItem('lastVisitedRoute', route);
+    } catch (error) {
+      console.error('Failed to save last visited route:', error);
+    }
   },
   getLastVisitedRoute: () => {
-    return localStorage.getItem('lastVisitedRoute') || '/';
+    try {
+      return localStorage.getItem('lastVisitedRoute') || '/';
+    } catch (error) {
+      console.error('Failed to retrieve last visited route:', error);
+      return '/';
+    }
   }
 };
 
@@ -33,13 +55,12 @@ const api = axios.create({
 });
 
 export const AuthProvider = ({ children }) => {
-  // Initialize user from localStorage - this is key to persist through refreshes
   const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Set up axios request interceptor to always include the token
+  // Set up axios request interceptor to include the token
   useEffect(() => {
     const requestInterceptor = api.interceptors.request.use(config => {
       const token = localStorage.getItem('token');
@@ -58,7 +79,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const responseInterceptor = api.interceptors.response.use(
       response => {
-        // Check if there's a new token in the headers
         const newToken = response.headers['x-new-token'];
         if (newToken) {
           localStorage.setItem('token', newToken);
@@ -67,10 +87,8 @@ export const AuthProvider = ({ children }) => {
         return response;
       },
       error => {
-        // Don't automatically log out on auth errors
         if (error.response && error.response.status === 401) {
           console.log('401 error detected, but not logging out');
-          // We're not automatically logging out anymore
         }
         return Promise.reject(error);
       }
@@ -81,14 +99,10 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Custom setter that also persists to localStorage
+  // Custom setter that persists to localStorage
   const setUserWithPersistence = useCallback((userData) => {
     setUser(userData);
-    if (userData) {
-      persistentStorage.saveUser(userData);
-    } else {
-      persistentStorage.clearUser();
-    }
+    persistentStorage.saveUser(userData);
   }, []);
 
   // Check authentication status on app load
@@ -100,17 +114,14 @@ export const AuthProvider = ({ children }) => {
         const savedUser = persistentStorage.getUser();
         
         if (!token) {
-          // No token, clear any stale user data
           setUserWithPersistence(null);
           setLoading(false);
           setInitialized(true);
           return;
         }
         
-        // Set API authorization header
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        // If we have saved user data, use it immediately
         if (savedUser) {
           setUserWithPersistence(savedUser);
           setLoading(false);
@@ -118,7 +129,6 @@ export const AuthProvider = ({ children }) => {
           return;
         }
         
-        // If no saved user data but we have token, try to validate token
         try {
           const response = await api.get('/auth/validate');
           if (response.data && !response.data.temporaryAccess) {
@@ -126,7 +136,6 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.log('Token validation error:', error);
-          // If validation fails, clear the token 
           localStorage.removeItem('token');
           setUserWithPersistence(null);
         }
@@ -144,7 +153,6 @@ export const AuthProvider = ({ children }) => {
   const validateToken = useCallback(async () => {
     try {
       const response = await api.get('/auth/validate');
-      
       if (response.data && !response.data.temporaryAccess) {
         setUserWithPersistence(response.data);
       }
@@ -195,24 +203,18 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      // Get the token from localStorage
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
       
-      // Make the API request to update the profile
       const response = await api.put('/users/profile', profileData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Get the updated user data from the response
       const updatedUser = response.data;
-      
-      // Merge the updated data with the existing user object
       const mergedUser = { ...user, ...updatedUser };
       
-      // Update the user in state and localStorage
       setUserWithPersistence(mergedUser);
       
       return { 
@@ -241,14 +243,8 @@ export const AuthProvider = ({ children }) => {
 
   const hasRole = useCallback((requiredRoles) => {
     if (!user) return false;
-    
-    // If no roles are required, return true
     if (!requiredRoles || requiredRoles.length === 0) return true;
-    
-    // Admin role has access to everything
     if (user.role === 'admin') return true;
-    
-    // Check if user's role is in the required roles
     return Array.isArray(requiredRoles) 
       ? requiredRoles.includes(user.role) 
       : user.role === requiredRoles;
