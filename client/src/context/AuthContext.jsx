@@ -193,6 +193,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    try {
+      // If email is being updated, it may need a different endpoint or special handling
+      const response = await api.put('/users/profile', profileData);
+      
+      // Assuming the API returns the updated user object
+      const updatedUser = response.data;
+      
+      // Update the user in state and localStorage
+      setUserWithPersistence({
+        ...user,
+        ...updatedUser
+      });
+      
+      return { 
+        success: true, 
+        message: 'Profile updated successfully',
+        user: updatedUser
+      };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to update profile';
+      console.error('Profile update error:', errorMessage);
+      
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     persistentStorage.clearUser();
@@ -233,6 +263,7 @@ export const AuthProvider = ({ children }) => {
       login,
       register,
       logout,
+      updateProfile,
       hasRole,
       validateToken,
       saveLastVisitedRoute,
