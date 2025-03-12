@@ -38,6 +38,9 @@ const AdminDashboard = () => {
   const [editingOrder, setEditingOrder] = useState(null);
   const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState('mpesa');
+  const [userPhone, setUserPhone] = useState('');
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
 
 
   // Sample data for services
@@ -241,7 +244,10 @@ const AdminDashboard = () => {
       const orderData = {
         id: generatedParcelNumber,
         customer: userName,
-        email: userEmail,
+        email: userEmail, // Keep for backward compatibility
+        phone: userPhone, // Add sender's phone
+        recipientName: recipientName, // Add recipient's name
+        recipientPhone: recipientPhone, // Add recipient's phone
         status: 'Order Placed',
         date: new Date().toISOString().split('T')[0],
         amount: courierPrice,
@@ -280,10 +286,12 @@ const AdminDashboard = () => {
           price: courierPrice,
           parcelNumber: generatedParcelNumber,
           userName: userName,
-          userEmail: userEmail,
+          userPhone: userPhone, // Include phone instead of email
+          recipientName: recipientName, // Include recipient name
+          recipientPhone: recipientPhone, // Include recipient phone
           wholeBooking: wholeBooking ? 'Yes' : 'No'
         };
-
+  
         await emailjs.send('service_dxo1qa8', 'template_ha6frtq', emailParams);
         
         // Reset form and close modal
@@ -392,63 +400,68 @@ const startPaymentStatusCheck = async (checkoutRequestId, orderId) => {
 };
   
 
-  // Reset form helper function
-  const resetFormFields = () => {
-    setPaymentConfirmed(false);
-    setCourierPrice('');
-    setParcelNumber('');
-    setUserName('');
-    setUserEmail('');
-    setPickupLocation('');
-    setDeliveryLocation('');
-    setCourierType('standard');
-    setWholeBooking(false);
-    setPaymentMode('mpesa');
-  };
-  // Render users section
-  const renderUsersSection = () => (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold mb-6">Manage Users</h2>
-      {loading ? (
-        <div className="text-center text-white">Loading users...</div>
-      ) : error ? (
-        <div className="text-center text-red-500">{error}</div>
-      ) : (
-        <div className="space-y-4">
-          {users.map((user) => (
-            <div
-              key={user._id}
-              className="bg-white/5 p-4 rounded-lg flex items-center justify-between hover:bg-white/10 transition-all duration-300"
-            >
-              <div>
-                <h3 className="font-bold">{user.username}</h3>
-                <p className="text-blue-200">{user.email}</p>
-                <p className="text-gray-400">{user.phone}</p>
+const resetFormFields = () => {
+  setPaymentConfirmed(false);
+  setCourierPrice('');
+  setParcelNumber('');
+  setUserName('');
+  setUserEmail('');
+  setUserPhone(''); // Clear sender's phone
+  setRecipientName(''); // Clear recipient's name
+  setRecipientPhone(''); // Clear recipient's phone
+  setPickupLocation('');
+  setDeliveryLocation('');
+  setCourierType('standard');
+  setWholeBooking(false);
+  setPaymentMode('mpesa');
+};
+
+const renderUsersSection = () => (
+  <div className="space-y-4">
+    <h2 className="text-2xl font-bold mb-6">Manage Users</h2>
+    {loading ? (
+      <div className="text-center text-white">Loading users...</div>
+    ) : error ? (
+      <div className="text-center text-red-500">{error}</div>
+    ) : (
+      <div className="space-y-4">
+        {users.map((user) => (
+          <div
+            key={user._id}
+            className="bg-white/5 p-4 rounded-lg flex items-center justify-between hover:bg-white/10 transition-all duration-300"
+          >
+            <div>
+              <h3 className="font-bold">{user.username}</h3>
+              <div className="flex items-center text-blue-200">
+                <Phone size={16} className="mr-2" /> 
+                {user.phone}
               </div>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => handleStatusToggle(user._id, user.status)}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    user.status === 'Active'
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-red-500/20 text-red-400'
-                  }`}
-                >
-                  {user.status}
-                </button>
-                <button onClick={() => setSelectedUser(user)}>
-                  <Edit size={20} className="text-blue-400 hover:text-blue-300" />
-                </button>
-                <button onClick={() => handleDeleteUser(user._id)}>
-                  <Trash size={20} className="text-red-400 hover:text-red-300" />
-                </button>
-              </div>
+              <p className="text-gray-400">{user.email}</p>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => handleStatusToggle(user._id, user.status)}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  user.status === 'Active'
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-red-500/20 text-red-400'
+                }`}
+              >
+                {user.status}
+              </button>
+              <button onClick={() => setSelectedUser(user)}>
+                <Edit size={20} className="text-blue-400 hover:text-blue-300" />
+              </button>
+              <button onClick={() => handleDeleteUser(user._id)}>
+                <Trash size={20} className="text-red-400 hover:text-red-300" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
   // Render orders section with management features
   // Replace renderOrdersSection in AdminDashboard.js
@@ -508,127 +521,133 @@ const startPaymentStatusCheck = async (checkoutRequestId, orderId) => {
   );
 
 
-const renderOrdersSection = () => (
-  <section className="bg-gray-900/60 rounded-xl p-6 backdrop-blur">
-    <h2 className="text-2xl font-bold mb-6">Manage Orders</h2>
-
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-700">
-            <th className="p-3 text-left">ID</th>
-            <th className="p-3 text-left">Customer</th>
-            <th className="p-3 text-left">Destination</th>
-            <th className="p-3 text-left">Pickup</th>
-            <th className="p-3 text-left">Status</th>
-            <th className="p-3 text-left">Amount</th>
-            <th className="p-3 text-left">Payment</th>
-            <th className="p-3 text-left">Date</th>
-            <th className="p-3 text-left">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-              <td className="p-3">
-                <span className="font-mono text-sm">{order.id}</span>
-              </td>
-              <td className="p-3">
-                {order.customer}
-              </td>
-              <td className="p-3">
-                {order.destination}
-              </td>
-              <td className="p-3">
-                From: {order.pickupLocation}
-              </td>
-              <td className="p-3">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' :
-                  order.status === 'In Transit' ? 'bg-blue-500/20 text-blue-400' :
-                  order.status === 'Order Placed' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {order.status}
-                </span>
-              </td>
-              <td className="p-3">
-                KES {order.amount}
-              </td>
-              <td className="p-3">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  order.paymentConfirmed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                }`}>
-                  {order.paymentConfirmed ? 'Paid' : 'Pending'}
-                </span>
-              </td>
-              <td className="p-3">
-                {new Date(order.date).toLocaleDateString()}
-              </td>
-              <td className="p-3 space-y-2">
-                <button
-                  onClick={() => {
-                    setEditingOrder({ 
-                      id: order.id, 
-                      currentStatus: order.status,
-                      newStatus: order.status
-                    });
-                    setShowOrderStatusModal(true);
-                  }}
-                  className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
-                >
-                  Update Status
-                </button>
-                {order.paymentMode === 'mpesa' && !order.paymentConfirmed && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (window.confirm(`Resend STK push to ${order.mpesaNumber}?`)) {
-                          const response = await api.post('/mpesa/stkpush', {
-                            phoneNumber,
-                            amount,
-                            orderId
-                          }, {
-                            headers: { 
-                              Authorization: `Bearer ${localStorage.getItem('token')}`,
-                              'Content-Type': 'application/json'
-                            }
-                          });
-                          
-                          if (response.data.success) {
-                            alert(`STK push sent to ${order.mpesaNumber}. Please ask customer to complete the payment on their phone.`);
-                            
-                            // Start polling for payment status
-                            const checkoutRequestId = response.data.data.CheckoutRequestID;
-                            startPaymentStatusCheck(checkoutRequestId, order.id);
-                          } else {
-                            alert(`Failed to initiate M-Pesa payment: ${response.data.message}`);
-                          }
-                        }
-                      } catch (error) {
-                        console.error('STK Push Error:', error);
-                        alert(`Failed to initiate M-Pesa payment. ${error.response?.data?.message || error.message}`);
-                      }
-                    }}
-                    className="px-3 py-1 block w-full bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
-                  >
-                    Resend STK Push
-                  </button>
-                )}
-                <button
-                  onClick={() => handleDeleteOrder(order.id)}
-                  className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
-                >
-                  Delete
-                </button>
-              </td>
+  const renderOrdersSection = () => (
+    <section className="bg-gray-900/60 rounded-xl p-6 backdrop-blur">
+      <h2 className="text-2xl font-bold mb-6">Manage Orders</h2>
+  
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-700">
+              <th className="p-3 text-left">ID</th>
+              <th className="p-3 text-left">Sender</th>
+              <th className="p-3 text-left">Recipient</th>
+              <th className="p-3 text-left">Destination</th>
+              <th className="p-3 text-left">Pickup</th>
+              <th className="p-3 text-left">Status</th>
+              <th className="p-3 text-left">Amount</th>
+              <th className="p-3 text-left">Payment</th>
+              <th className="p-3 text-left">Date</th>
+              <th className="p-3 text-left">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </section>
-);
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                <td className="p-3">
+                  <span className="font-mono text-sm">{order.id}</span>
+                </td>
+                <td className="p-3">
+                  <div>{order.customer}</div>
+                  <div className="text-sm text-blue-300">{order.phone}</div>
+                </td>
+                <td className="p-3">
+                  <div>{order.recipientName}</div>
+                  <div className="text-sm text-blue-300">{order.recipientPhone}</div>
+                </td>
+                <td className="p-3">
+                  {order.destination}
+                </td>
+                <td className="p-3">
+                  From: {order.pickupLocation}
+                </td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' :
+                    order.status === 'In Transit' ? 'bg-blue-500/20 text-blue-400' :
+                    order.status === 'Order Placed' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-gray-500/20 text-gray-400'
+                  }`}>
+                    {order.status}
+                  </span>
+                </td>
+                <td className="p-3">
+                  KES {order.amount}
+                </td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    order.paymentConfirmed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {order.paymentConfirmed ? 'Paid' : 'Pending'}
+                  </span>
+                </td>
+                <td className="p-3">
+                  {new Date(order.date).toLocaleDateString()}
+                </td>
+                <td className="p-3 space-y-2">
+   <button
+                    onClick={() => {
+                      setEditingOrder({ 
+                        id: order.id, 
+                        currentStatus: order.status,
+                        newStatus: order.status
+                      });
+                      setShowOrderStatusModal(true);
+                    }}
+                    className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                  >
+                    Update Status
+                  </button>
+                  {order.paymentMode === 'mpesa' && !order.paymentConfirmed && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          if (window.confirm(`Resend STK push to ${order.mpesaNumber}?`)) {
+                            const response = await api.post('/mpesa/stkpush', {
+                              phoneNumber,
+                              amount,
+                              orderId
+                            }, {
+                              headers: { 
+                                Authorization: `Bearer ${localStorage.getItem('token')}`,
+                                'Content-Type': 'application/json'
+                              }
+                            });
+                            
+                            if (response.data.success) {
+                              alert(`STK push sent to ${order.mpesaNumber}. Please ask customer to complete the payment on their phone.`);
+                              
+                              // Start polling for payment status
+                              const checkoutRequestId = response.data.data.CheckoutRequestID;
+                              startPaymentStatusCheck(checkoutRequestId, order.id);
+                            } else {
+                              alert(`Failed to initiate M-Pesa payment: ${response.data.message}`);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('STK Push Error:', error);
+                          alert(`Failed to initiate M-Pesa payment. ${error.response?.data?.message || error.message}`);
+                        }
+                      }}
+                      className="px-3 py-1 block w-full bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
+                    >
+                      Resend STK Push
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteOrder(order.id)}
+                    className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 
 return (
   <div className="min-h-screen p-6 font-['Jacques_Francois']">
@@ -760,7 +779,7 @@ return (
               <form onSubmit={handleCourierSubmit} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-gray-300 mb-2">User Name</label>
+                    <label className="block text-gray-300 mb-2">Sender's Name</label>
                     <input
                       type="text"
                       name="user-name"
@@ -771,18 +790,47 @@ return (
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-300 mb-2">User Email</label>
+                    <label className="block text-gray-300 mb-2">Sender's Phone</label>
                     <input
-                      type="email"
-                      name="user-email"
+                      type="tel"
+                      name="user-phone"
                       className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
                       required
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
+                      value={userPhone}
+                      onChange={(e) => setUserPhone(e.target.value)}
+                      placeholder="0712345678"
+                      pattern="^(07|01)[0-9]{8}$"
+                      title="Please enter a valid 10-digit phone number starting with 07 or 01"
                     />
                   </div>
                 </div>
-
+                <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-gray-300 mb-2">Recipient's Full Name</label>
+                  <input
+                    type="text"
+                    name="recipient-name"
+                    className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                    required
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-2">Recipient's Phone</label>
+                  <input
+                    type="tel"
+                    name="recipient-phone"
+                    className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                    required
+                    value={recipientPhone}
+                    onChange={(e) => setRecipientPhone(e.target.value)}
+                    placeholder="0712345678"
+                    pattern="^(07|01)[0-9]{8}$"
+                    title="Please enter a valid 10-digit phone number starting with 07 or 01"
+                  />
+                </div>
+              </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-300 mb-2">Pickup Location</label>
