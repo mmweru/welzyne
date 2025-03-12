@@ -231,23 +231,29 @@ const AdminDashboard = () => {
   const handleCourierSubmit = async (e) => {
     e.preventDefault();
   
+    // Validate key fields
+    if (!userName || !userPhone || !recipientName || !recipientPhone || !pickupLocation || !deliveryLocation || !courierPrice) {
+      alert('Please fill in all required fields');
+      return;
+    }
+  
     try {
       // Generate parcel number
       const generatedParcelNumber = generateParcelNumber();
       setParcelNumber(generatedParcelNumber);
   
-      // Get form data
+      // Get form data directly
       const packageDetails = e.target['package-details'].value;
       const mpesaNumber = paymentMode === 'mpesa' ? e.target['mpesa-number'].value : '';
   
-      // Create order data object
+      // Create order data object with all required fields
       const orderData = {
         id: generatedParcelNumber,
         customer: userName,
-        email: userEmail, // Keep for backward compatibility
-        phone: userPhone, // Add sender's phone
-        recipientName: recipientName, // Add recipient's name
-        recipientPhone: recipientPhone, // Add recipient's phone
+        email: userEmail || '', // Use empty string if email is not provided
+        phone: userPhone,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
         status: 'Order Placed',
         date: new Date().toISOString().split('T')[0],
         amount: courierPrice,
@@ -258,9 +264,12 @@ const AdminDashboard = () => {
         mpesaNumber: mpesaNumber,
         packageDetails: packageDetails,
         wholeBooking: wholeBooking,
-        paymentStatus: 'Pending'
+        paymentStatus: 'Pending',
+        paymentConfirmed: false // Explicitly set this to false for new orders
       };
   
+      console.log('Sending order data:', orderData); // Debug log
+      
       // Send to server
       const response = await api.post('/orders', orderData, {
         headers: { 
@@ -286,9 +295,9 @@ const AdminDashboard = () => {
           price: courierPrice,
           parcelNumber: generatedParcelNumber,
           userName: userName,
-          userPhone: userPhone, // Include phone instead of email
-          recipientName: recipientName, // Include recipient name
-          recipientPhone: recipientPhone, // Include recipient phone
+          userPhone: userPhone,
+          recipientName: recipientName,
+          recipientPhone: recipientPhone,
           wholeBooking: wholeBooking ? 'Yes' : 'No'
         };
   
@@ -301,8 +310,11 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Booking Error:', error);
       
+      // Provide more detailed error information
       if (error.response) {
-        alert(`Failed to book courier: ${error.response.data.message || error.response.statusText}`);
+        const errorMsg = error.response.data.message || error.response.statusText;
+        alert(`Failed to book courier: ${errorMsg}`);
+        console.log('Error response:', error.response.data); // More detailed logging
       } else if (error.request) {
         alert('Failed to book courier: No response from server. Please check your connection.');
       } else {
