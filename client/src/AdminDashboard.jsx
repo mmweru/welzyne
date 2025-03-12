@@ -232,7 +232,15 @@ const AdminDashboard = () => {
     e.preventDefault();
   
     // Validate key fields
-    if (!userName || !userPhone || !recipientName || !recipientPhone || !pickupLocation || !deliveryLocation || !courierPrice) {
+    if (
+      !userName ||
+      !userPhone ||
+      !recipientName ||
+      !recipientPhone ||
+      !pickupLocation ||
+      !deliveryLocation ||
+      !courierPrice
+    ) {
       alert('Please fill in all required fields');
       return;
     }
@@ -242,16 +250,15 @@ const AdminDashboard = () => {
       const generatedParcelNumber = generateParcelNumber();
       setParcelNumber(generatedParcelNumber);
   
-      // Get form data directly
+      // Get form data
       const packageDetails = e.target['package-details'].value;
       const mpesaNumber = paymentMode === 'mpesa' ? e.target['mpesa-number'].value : '';
   
-      // Create order data object with all required fields
+      // Create order data object
       const orderData = {
         id: generatedParcelNumber,
         customer: userName,
-        email: userEmail || '', // Use empty string if email is not provided
-        phone: userPhone,
+        phone: userPhone, // Sender's phone number
         recipientName: recipientName,
         recipientPhone: recipientPhone,
         status: 'Order Placed',
@@ -265,26 +272,25 @@ const AdminDashboard = () => {
         packageDetails: packageDetails,
         wholeBooking: wholeBooking,
         paymentStatus: 'Pending',
-        paymentConfirmed: false // Explicitly set this to false for new orders
       };
   
       console.log('Sending order data:', orderData); // Debug log
-      
+  
       // Send to server
       const response = await api.post('/orders', orderData, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
   
       // Update local state if server update was successful
       if (response.status === 201) {
-        setOrders(prevOrders => [...prevOrders, response.data]);
-        
+        setOrders((prevOrders) => [...prevOrders, response.data]);
+  
         // Show success message
         alert(`Booking Successful! Your Parcel Number is: ${generatedParcelNumber}`);
-        
+  
         // Send email confirmation
         const emailParams = {
           pickup: pickupLocation,
@@ -298,18 +304,18 @@ const AdminDashboard = () => {
           userPhone: userPhone,
           recipientName: recipientName,
           recipientPhone: recipientPhone,
-          wholeBooking: wholeBooking ? 'Yes' : 'No'
+          wholeBooking: wholeBooking ? 'Yes' : 'No',
         };
   
         await emailjs.send('service_dxo1qa8', 'template_ha6frtq', emailParams);
-        
+  
         // Reset form and close modal
         setShowCourierForm(false);
         resetFormFields();
       }
     } catch (error) {
       console.error('Booking Error:', error);
-      
+  
       // Provide more detailed error information
       if (error.response) {
         const errorMsg = error.response.data.message || error.response.statusText;

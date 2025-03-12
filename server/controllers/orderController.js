@@ -4,35 +4,44 @@ import { broadcast } from '../server.js';
 // Create a new order
 export const createOrder = async (req, res) => {
     try {
-        const orderData = req.body;
-        
-        // Validate required fields
-        if (!orderData.id || !orderData.customer || !orderData.email || !orderData.destination || !orderData.pickupLocation) {
-            return res.status(400).json({ message: 'Missing required fields' });
-        }
-        
-        // Create new order
-        const newOrder = new Order(orderData);
-        const savedOrder = await newOrder.save();
-        
-        // Broadcast new order event via WebSocket
-        broadcast({
-            type: 'NEW_ORDER',
-            order: savedOrder
-        });
-        
-        res.status(201).json(savedOrder);
+      const orderData = req.body;
+  
+      // Validate required fields
+      if (
+        !orderData.id ||
+        !orderData.customer ||
+        !orderData.phone ||
+        !orderData.recipientName ||
+        !orderData.recipientPhone ||
+        !orderData.destination ||
+        !orderData.pickupLocation
+      ) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+  
+      // Create new order
+      const newOrder = new Order(orderData);
+      const savedOrder = await newOrder.save();
+  
+      // Broadcast new order event via WebSocket
+      broadcast({
+        type: 'NEW_ORDER',
+        order: savedOrder,
+      });
+  
+      res.status(201).json(savedOrder);
     } catch (error) {
-        console.error('Error creating order:', error);
-        
-        // Handle duplicate ID error
-        if (error.code === 11000) {
-            return res.status(400).json({ message: 'Order with this ID already exists' });
-        }
-        
-        res.status(500).json({ message: 'Server error', error: error.message });
+      console.error('Error creating order:', error);
+  
+      // Handle duplicate ID error
+      if (error.code === 11000) {
+        return res.status(400).json({ message: 'Order with this ID already exists' });
+      }
+  
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
 
 // Get all orders
 export const getAllOrders = async (req, res) => {

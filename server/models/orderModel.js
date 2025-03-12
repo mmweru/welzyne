@@ -2,64 +2,84 @@
 
 import mongoose from 'mongoose';
 
+// In models/Order.js
 const orderSchema = new mongoose.Schema({
   id: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   customer: {
     type: String,
-    required: true
+    required: true,
   },
-  email: {
+  phone: {
     type: String,
-    required: true
+    required: true,
+  },
+  recipientName: {
+    type: String,
+    required: true,
+  },
+  recipientPhone: {
+    type: String,
+    required: true,
   },
   destination: {
     type: String,
-    required: true
+    required: true,
   },
   pickupLocation: {
     type: String,
-    required: true
+    required: true,
   },
   status: {
     type: String,
     enum: ['Order Placed', 'Processing', 'In Transit', 'Out for Delivery', 'Delivered'],
-    default: 'Order Placed'
+    default: 'Order Placed',
   },
   date: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
   },
   packageDetails: {
     type: String,
-    required: true
+    required: true,
   },
   courierType: {
     type: String,
     enum: ['standard', 'express', 'same-day'],
-    default: 'standard'
+    default: 'standard',
   },
   wholeBooking: {
     type: Boolean,
-    default: false
+    default: false,
   },
-  paymentVerificationDate: {
-    type: Date
+  paymentMode: {
+    type: String,
+    enum: ['mpesa', 'cash'],
+    default: 'mpesa',
   },
-  paymentVerifiedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }
+  mpesaNumber: {
+    type: String,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['Pending', 'Completed'],
+    default: 'Pending',
+  },
+  paymentConfirmed: {
+    type: Boolean,
+    default: false,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
+
 
 const Order = mongoose.model('Order', orderSchema);
 
