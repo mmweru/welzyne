@@ -1,3 +1,4 @@
+// userModel.js
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
@@ -27,6 +28,23 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['Active', 'Inactive'],
         default: 'Active'
+    },
+    // Add these new fields
+    photoUrl: {
+        type: String,
+        default: null
+    },
+    bio: {
+        type: String,
+        default: ''
+    },
+    address: {
+        type: String,
+        default: ''
+    },
+    membershipType: {
+        type: String,
+        default: 'Standard'
     }
 }, {
     timestamps: true

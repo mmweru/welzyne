@@ -87,6 +87,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+//  uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Database connection with environment-specific logging
 dbConnect().then(() => {
   if (process.env.NODE_ENV !== 'production') {

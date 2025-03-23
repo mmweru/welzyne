@@ -1,3 +1,4 @@
+// AuthContext.js
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
@@ -201,6 +202,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Updated updateProfile to handle FormData and photo uploads
   const updateProfile = async (profileData) => {
     try {
       const token = localStorage.getItem('token');
@@ -211,46 +213,58 @@ export const AuthProvider = ({ children }) => {
         };
       }
       
-      // Validate input
-      const { username, email, phone } = profileData;
+      let formDataToSend;
+      let headers = { Authorization: `Bearer ${token}` };
       
-      // Basic validations
-      if (!username || username.length < 2) {
-        return {
-          success: false,
-          error: 'Username must be at least 2 characters long.'
-        };
+      // If profileData is already FormData (for photo uploads), use it directly
+      if (profileData instanceof FormData) {
+        formDataToSend = profileData;
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        // Basic validations for regular profile updates
+        const { username, email, phone } = profileData;
+        
+        if (!username || username.length < 2) {
+          return {
+            success: false,
+            error: 'Username must be at least 2 characters long.'
+          };
+        }
+    
+        if (!email || !/\S+@\S+\.\S+/.test(email)) {
+          return {
+            success: false,
+            error: 'Please provide a valid email address.'
+          };
+        }
+    
+        if (phone && !/^\+?[\d\s()-]{10,}$/.test(phone)) {
+          return {
+            success: false,
+            error: 'Please provide a valid phone number.'
+          };
+        }
+        
+        formDataToSend = profileData;
       }
-  
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        return {
-          success: false,
-          error: 'Please provide a valid email address.'
+      
+      // Make API request - notice we're using /users/profile (not /api/users/profile)
+      const response = await api.put('/users/profile', formDataToSend, { headers });
+      
+      if (response.data && response.data.user) {
+        const updatedUser = response.data.user;
+        const mergedUser = { ...user, ...updatedUser };
+        
+        setUserWithPersistence(mergedUser);
+        
+        return { 
+          success: true, 
+          message: 'Profile updated successfully',
+          user: mergedUser
         };
+      } else {
+        throw new Error('Invalid response format');
       }
-  
-      if (phone && !/^\+?[\d\s()-]{10,}$/.test(phone)) {
-        return {
-          success: false,
-          error: 'Please provide a valid phone number.'
-        };
-      }
-      
-      // Make sure to include the full path
-      const response = await api.put('/api/users/profile', profileData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const updatedUser = response.data;
-      const mergedUser = { ...user, ...updatedUser };
-      
-      setUserWithPersistence(mergedUser);
-      
-      return { 
-        success: true, 
-        message: 'Profile updated successfully',
-        user: mergedUser
-      };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 
         'Failed to update profile. Please check your connection and try again.';
@@ -302,7 +316,8 @@ export const AuthProvider = ({ children }) => {
       hasRole,
       validateToken,
       saveLastVisitedRoute,
-      getLastVisitedRoute
+      getLastVisitedRoute,
+      setUser: setUserWithPersistence // Export the setUser function to update context after profile changes
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Package, Truck, Clock, User, ChevronRight, Search } from './CustomIcons';
+import { Package, Truck, Clock, User, ChevronRight, Search, Camera, CheckCircle } from './CustomIcons';
 import { useAuth } from './context/AuthContext';
 
 // Create axios instance with base URL
@@ -12,7 +12,7 @@ const api = axios.create({
 });
 
 const UserDashboard = () => {
-  const { user, loading, setUser, updateProfile  } = useAuth();
+  const { user, loading, setUser, updateProfile } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showTrackingResult, setShowTrackingResult] = useState(false);
@@ -28,17 +28,25 @@ const UserDashboard = () => {
   const [profileForm, setProfileForm] = useState({
     username: user?.username || '',
     email: user?.email || '',
-    phone: user?.phone || ''
+    phone: user?.phone || '',
+    bio: user?.bio || '',
+    address: user?.address || ''
   });
   const [profileError, setProfileError] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState(user?.photoUrl || null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const fileInputRef = useRef(null);
 
   const handleEditProfile = () => {
     setIsEditingProfile(true);
     setProfileForm({
       username: user?.username || '',
       email: user?.email || '',
-      phone: user?.phone || ''
+      phone: user?.phone || '',
+      bio: user?.bio || '',
+      address: user?.address || ''
     });
+    setPhotoFile(null);
     setProfileError(null); // Reset any previous errors
   };
 
@@ -47,31 +55,64 @@ const UserDashboard = () => {
     setProfileForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePhotoClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handlePhotoChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setProfileError(null);
 
     try {
-      const result = await updateProfile(profileForm);
+      // Create FormData object to handle file upload
+      const formData = new FormData();
       
-      if (result.success) {
+      // Add all profile form fields
+      Object.keys(profileForm).forEach(key => {
+        formData.append(key, profileForm[key]);
+      });
+      
+      // Add photo if selected
+      if (photoFile) {
+        formData.append('profilePhoto', photoFile);
+      }
+      
+      // Send multipart/form-data request
+      const token = localStorage.getItem('token');
+      const response = await api.put('/users/profile', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (response.data.success) {
+        // Update user context with new data
+        setUser(response.data.user);
         setIsEditingProfile(false);
-        // Optional: You can show a success toast/alert here
+        // Optional: Show success message
       } else {
-        setProfileError(result.error);
+        setProfileError(response.data.error || 'Update failed');
       }
     } catch (error) {
       console.error('Profile update error:', error);
       setProfileError('An unexpected error occurred. Please try again.');
     }
   };
-
-  // In your render method, add error display:
-  {isEditingProfile && profileError && (
-    <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">
-      {profileError}
-    </div>
-  )}
 
   // Fetch user's orders
   useEffect(() => {
@@ -154,7 +195,6 @@ const UserDashboard = () => {
       completed: index <= currentIndex
     }));
   };
-
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
 
@@ -308,8 +348,49 @@ const UserDashboard = () => {
         {showProfileDetails && (
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white animate-fadeIn">
             <h3 className="text-xl font-bold mb-4">Profile Details</h3>
+            
             {isEditingProfile ? (
               <form onSubmit={handleProfileUpdate}>
+                {profileError && (
+                  <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">
+                    {profileError}
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-center mb-6">
+                  <div className="relative">
+                    <div 
+                      className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-white/5 border-2 border-blue-500 cursor-pointer"
+                      onClick={handlePhotoClick}
+                    >
+                      {profilePhoto ? (
+                        <img 
+                          src={profilePhoto} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <User size={48} />
+                        </div>
+                      )}
+                    </div>
+                    <div 
+                      className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-2 cursor-pointer"
+                      onClick={handlePhotoClick}
+                    >
+                      <Camera size={16} />
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div>
                     <label className="block mb-2">Name:</label>
@@ -341,6 +422,26 @@ const UserDashboard = () => {
                       className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
                     />
                   </div>
+                  <div>
+                    <label className="block mb-2">Address:</label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={profileForm.address}
+                      onChange={handleProfileFormChange}
+                      className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block mb-2">Bio:</label>
+                    <textarea
+                      name="bio"
+                      value={profileForm.bio}
+                      onChange={handleProfileFormChange}
+                      rows="3"
+                      className="w-full p-2 rounded-lg bg-white/5 text-white border border-white/20 focus:outline-none focus:ring focus:ring-blue-500"
+                    ></textarea>
+                  </div>
                 </div>
                 <div className="mt-4 flex gap-4">
                   <button
@@ -359,23 +460,44 @@ const UserDashboard = () => {
                 </div>
               </form>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div>
-                  <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
-                  <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
-                  <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                <div className="flex flex-col items-center justify-center md:col-span-1">
+                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-white/5 border-2 border-blue-500 mb-2">
+                    {user?.photoUrl ? (
+                      <img 
+                        src={user.photoUrl} 
+                        alt="Profile" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <User size={48} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
-                  <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
-                  <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+                <div className="md:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="mb-2"><strong>Name:</strong> {user?.username}</p>
+                      <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
+                      <p className="mb-2"><strong>Phone:</strong> {user?.phone || 'Not provided'}</p>
+                      <p className="mb-2"><strong>Address:</strong> {user?.address || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="mb-2"><strong>Total Orders:</strong> {orders.length}</p>
+                      <p className="mb-2"><strong>Membership:</strong> {user?.membershipType || 'Standard'}</p>
+                      <p className="mb-2"><strong>Account Status:</strong> <span className="text-green-400">Active</span></p>
+                      <p className="mb-2"><strong>Bio:</strong> {user?.bio || 'No bio provided'}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleEditProfile}
+                    className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
+                  >
+                    Edit Profile
+                  </button>
                 </div>
-                <button
-                  onClick={handleEditProfile}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
-                >
-                  Edit Profile
-                </button>
               </div>
             )}
           </div>
@@ -404,11 +526,14 @@ const UserDashboard = () => {
                       <td className="px-4 py-3">{order.destination}</td>
                       <td className="px-4 py-3">KES {order.amount}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`px-3 py-2 rounded-full text-sm font-medium flex items-center justify-center ${
                           order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' :
                           order.status === 'In Transit' ? 'bg-yellow-500/20 text-yellow-400' :
                           'bg-blue-500/20 text-blue-400'
                         }`}>
+                          {order.status === 'Delivered' && <CheckCircle size={16} className="mr-2" />}
+                          {order.status === 'In Transit' && <Truck size={16} className="mr-2" />}
+                          {order.status === 'Order Placed' && <Package size={16} className="mr-2" />}
                           {order.status}
                         </span>
                       </td>

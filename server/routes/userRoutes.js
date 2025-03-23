@@ -3,6 +3,9 @@ import verifyToken from '../middleware/authMiddleware.js';
 import { roleMiddleware, authorizeRoles } from '../middleware/roleMiddleware.js';
 import User from '../models/userModel.js';
 import { broadcast } from '../server.js';
+import { getUserProfile, updateUserProfile } from '../controllers/userController.js';
+import upload from '../middleware/fileUpload.js';
+
 
 const router = express.Router();
 
@@ -40,6 +43,11 @@ router.patch("/:id/status", verifyToken, authorizeRoles("admin"), async (req, re
         res.status(500).json({ message: "Error updating user status" });
     }
 });
+// Get user profile
+router.get('/profile', authenticate, getUserProfile);
+
+// Update user profile - with file upload middleware
+router.put('/profile', authenticate, upload.single('profilePhoto'), updateUserProfile);
 
 // Delete user (admin only)
 router.delete("/:id", verifyToken, authorizeRoles("admin"), async (req, res) => {
