@@ -69,6 +69,22 @@ export const Search = ({ size }) => (
   </IconWrapper>
 );
 
+// Added Camera icon
+export const Camera = ({ size }) => (
+  <IconWrapper size={size}>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </IconWrapper>
+);
+
+// Added CheckCircle icon
+export const CheckCircle = ({ size }) => (
+  <IconWrapper size={size}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </IconWrapper>
+);
+
 // New Icons for Admin Dashboard
 export const Plus = ({ size }) => (
   <IconWrapper size={size}>
@@ -132,6 +148,8 @@ export default {
   User,
   ChevronRight,
   Search,
+  Camera,
+  CheckCircle,
   Plus,
   Edit,
   Trash,
