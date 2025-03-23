@@ -503,33 +503,34 @@ const UserDashboard = () => {
           </div>
         )}
 
-        {/* All Orders */}
+        {/* All Orders - Updated with better contrast */}
         {orders.length > 0 && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white">
+          <div className="bg-black/70 backdrop-blur-lg rounded-lg p-4 md:p-6 text-white">
             <h2 className="text-xl md:text-2xl font-bold mb-4">All Orders</h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-white/10">
-                <thead>
+              <table className="min-w-full divide-y divide-gray-500">
+                <thead className="bg-black/50">
                   <tr>
-                    <th className="px-4 py-3 text-left">Order ID</th>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Destination</th>
-                    <th className="px-4 py-3 text-left">Amount</th>
-                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left font-bold">Order ID</th>
+                    <th className="px-4 py-3 text-left font-bold">Date</th>
+                    <th className="px-4 py-3 text-left font-bold">Destination</th>
+                    <th className="px-4 py-3 text-left font-bold">Amount</th>
+                    <th className="px-4 py-3 text-left font-bold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-gray-700">
                   {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-white/5">
-                      <td className="px-4 py-3">{order.id}</td>
+                    <tr key={order.id} className="hover:bg-black/40 transition-colors">
+                      <td className="px-4 py-3 font-medium">{order.id}</td>
                       <td className="px-4 py-3">{order.date}</td>
                       <td className="px-4 py-3">{order.destination}</td>
                       <td className="px-4 py-3">KES {order.amount}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-3 py-2 rounded-full text-sm font-medium flex items-center justify-center ${
-                          order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' :
-                          order.status === 'In Transit' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-blue-500/20 text-blue-400'
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center ${
+                          order.status === 'Delivered' ? 'bg-green-900 text-green-300' :
+                          order.status === 'In Transit' ? 'bg-yellow-900 text-yellow-300' :
+                          order.status === 'Order Placed' ? 'bg-blue-900 text-blue-300' :
+                          'bg-gray-800 text-gray-300'
                         }`}>
                           {order.status === 'Delivered' && <CheckCircle size={16} className="mr-2" />}
                           {order.status === 'In Transit' && <Truck size={16} className="mr-2" />}
