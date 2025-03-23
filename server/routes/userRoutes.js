@@ -44,10 +44,10 @@ router.patch("/:id/status", verifyToken, authorizeRoles("admin"), async (req, re
     }
 });
 // Get user profile
-router.get('/profile', authenticate, getUserProfile);
+router.get('/profile', verifyToken, getUserProfile);
 
 // Update user profile - with file upload middleware
-router.put('/profile', authenticate, upload.single('profilePhoto'), updateUserProfile);
+router.put('/profile', verifyToken, upload.single('profilePhoto'), updateUserProfile);
 
 // Delete user (admin only)
 router.delete("/:id", verifyToken, authorizeRoles("admin"), async (req, res) => {
