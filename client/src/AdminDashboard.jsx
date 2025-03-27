@@ -21,7 +21,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user: currentUser } = useAuth();
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Existing state variables
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -289,11 +288,8 @@ const AdminDashboard = () => {
       if (response.status === 201) {
         setOrders((prevOrders) => [...prevOrders, response.data]);
   
-        // Close the form
-        setShowCourierForm(false);
-  
-        // Show success popup
-        setShowSuccessPopup(true);
+        // Show success message
+        alert(`Booking Successful! Your Parcel Number is: ${generatedParcelNumber}`);
   
         // Send email confirmation
         const emailParams = {
@@ -313,7 +309,8 @@ const AdminDashboard = () => {
   
         await emailjs.send('service_dxo1qa8', 'template_ha6frtq', emailParams);
   
-        // Reset form fields
+        // Reset form and close modal
+        setShowCourierForm(false);
         resetFormFields();
       }
     } catch (error) {
@@ -323,7 +320,7 @@ const AdminDashboard = () => {
       if (error.response) {
         const errorMsg = error.response.data.message || error.response.statusText;
         alert(`Failed to book courier: ${errorMsg}`);
-        console.log('Error response:', error.response.data);
+        console.log('Error response:', error.response.data); // More detailed logging
       } else if (error.request) {
         alert('Failed to book courier: No response from server. Please check your connection.');
       } else {
@@ -332,10 +329,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Add this method to handle closing the success popup
-  const closeSuccessPopup = () => {
-    setShowSuccessPopup(false);
-  };
   // Add this function to poll for payment status
 const startPaymentStatusCheck = async (checkoutRequestId, orderId) => {
   let attempts = 0;
@@ -623,6 +616,42 @@ const renderUsersSection = () => (
                   >
                     Update Status
                   </button>
+                  {order.paymentMode === 'mpesa' && !order.paymentConfirmed && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          if (window.confirm(`Resend STK push to ${order.mpesaNumber}?`)) {
+                            const response = await api.post('/mpesa/stkpush', {
+                              phoneNumber,
+                              amount,
+                              orderId
+                            }, {
+                              headers: { 
+                                Authorization: `Bearer ${localStorage.getItem('token')}`,
+                                'Content-Type': 'application/json'
+                              }
+                            });
+                            
+                            if (response.data.success) {
+                              alert(`STK push sent to ${order.mpesaNumber}. Please ask customer to complete the payment on their phone.`);
+                              
+                              // Start polling for payment status
+                              const checkoutRequestId = response.data.data.CheckoutRequestID;
+                              startPaymentStatusCheck(checkoutRequestId, order.id);
+                            } else {
+                              alert(`Failed to initiate M-Pesa payment: ${response.data.message}`);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('STK Push Error:', error);
+                          alert(`Failed to initiate M-Pesa payment. ${error.response?.data?.message || error.message}`);
+                        }
+                      }}
+                      className="px-3 py-1 block w-full bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
+                    >
+                      Resend STK Push
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDeleteOrder(order.id)}
                     className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
@@ -759,20 +788,10 @@ return (
         )}
       </div>
     </div>
-
       {/* Courier Booking Modal */}
       {showCourierForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-hidden">
           <div className="bg-gray-800 p-8 rounded-lg w-full max-w-4xl m-4 max-h-[90vh] flex flex-col animate-fadeIn modal-content">
-          <button 
-              onClick={() => {
-                setShowCourierForm(false);
-                resetFormFields();
-              }}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
-            >
-              <X size={24} />
-          </button>
             <h2 className="text-2xl font-bold text-white mb-6">Book a Courier</h2>
             <div className="overflow-y-auto flex-grow pr-2">
               <form onSubmit={handleCourierSubmit} className="space-y-6">
@@ -981,36 +1000,6 @@ return (
           </div>
         </div>
       )}
-        {showSuccessPopup && (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-lg text-center max-w-md animate-fadeIn">
-        <div className="mb-4">
-          <svg 
-            className="mx-auto mb-4 text-green-500 w-16 h-16" 
-            fill="currentColor" 
-            viewBox="0 0 20 20"
-          >
-            <path 
-              fillRule="evenodd" 
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
-              clipRule="evenodd" 
-            />
-          </svg>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Booking Successful!</h2>
-          <p className="text-gray-600 mb-4">
-            Your parcel has been booked. Your parcel number is: 
-            <span className="font-bold block mt-2">{parcelNumber}</span>
-          </p>
-        </div>
-        <button 
-          onClick={closeSuccessPopup}
-          className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  )}
 
       {/* Order Status Update Modal */}
       {showOrderStatusModal && editingOrder && (
