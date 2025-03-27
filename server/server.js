@@ -27,10 +27,20 @@ dotenv.config({
 const app = express();
 const httpServer = createServer(app);
 
-// Configure CORS origins based on environment
-const corsOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL] 
-  : ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND_URL];
+const corsOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:3000', 
+  'https://welzyne.com', 
+  'https://welzyne.onrender.com',
+  process.env.FRONTEND_URL
+];
+
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Initialize Socket.IO with environment-specific config
 const io = new Server(httpServer, {
@@ -78,14 +88,6 @@ app.use(helmet({
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-
-// CORS configuration
-app.use(cors({
-  origin: corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 //  uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
