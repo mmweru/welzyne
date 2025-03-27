@@ -36,10 +36,33 @@ const corsOrigins = [
 ];
 
 app.use(cors({
-  origin: corsOrigins,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173', 
+      'http://localhost:3000', 
+      'https://welzyne.com', 
+      'https://www.welzyne.com',
+      'https://welzyne.onrender.com',
+      process.env.FRONTEND_URL
+    ];
+    
+    if (allowedOrigins.some(allowedOrigin => 
+      origin.startsWith(allowedOrigin) || 
+      new RegExp(`^${allowedOrigin.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`).test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Initialize Socket.IO with environment-specific config
