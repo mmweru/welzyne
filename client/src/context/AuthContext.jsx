@@ -115,28 +115,15 @@ const determineBaseURL = async () => {
   return DOMAIN_CONFIG.primary;
 };
 
-// Create axios instance with dynamic baseURL
-const createApiInstance = async () => {
-  const baseURL = await determineBaseURL();
-  console.log(`Using API endpoint: ${baseURL}`);
-  
-  return axios.create({
-    baseURL,
-    withCredentials: true,
-    timeout: 10000
-  });
-};
-
-// Initialize api instance
-let api = createApiInstance();
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [apiEndpoint, setApiEndpoint] = useState('');
-  const [apiInitialized, setApiInitialized] = useState(false);
+  
+  // Simplified API endpoint management
+  const [apiEndpoint, setApiEndpoint] = useState(null);
+  const [apiInstance, setApiInstance] = useState(null);
 
   // Custom setter that persists to localStorage
   const setUserWithPersistence = useCallback((userData) => {
@@ -150,14 +137,16 @@ export const AuthProvider = ({ children }) => {
     
     const initializeApi = async () => {
       try {
-        const apiInstance = await createApiInstance();
-        if (isMounted) {
-          setApiEndpoint(apiInstance.defaults.baseURL);
-          setApiInitialized(true);
-        }
+        const baseURL = await determineBaseURL();
+        
+        const newApiInstance = axios.create({
+          baseURL,
+          withCredentials: true,
+          timeout: 10000
+        });
 
         // Set up interceptors
-        const requestInterceptor = apiInstance.interceptors.request.use(config => {
+        const requestInterceptor = newApiInstance.interceptors.request.use(config => {
           const token = localStorage.getItem('token');
           if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
@@ -165,28 +154,30 @@ export const AuthProvider = ({ children }) => {
           return config;
         });
 
-        const responseInterceptor = apiInstance.interceptors.response.use(
+        const responseInterceptor = newApiInstance.interceptors.response.use(
           response => {
             const newToken = response.headers['x-new-token'];
             if (newToken) {
               localStorage.setItem('token', newToken);
-              apiInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+              newApiInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
             }
             return response;
           },
           async (error) => {
-            if (error.response && error.response.status === 401) {
-              console.log('401 error detected, but not logging out');
-            }
-            
             // If the error is due to the endpoint being down, try to switch
             if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
               console.log('Endpoint might be down, attempting to switch...');
               try {
-                const newApiInstance = await createApiInstance();
-                api = newApiInstance;
+                const newBaseURL = await determineBaseURL();
+                const switchedApiInstance = axios.create({
+                  baseURL: newBaseURL,
+                  withCredentials: true,
+                  timeout: 10000
+                });
+                
                 if (isMounted) {
-                  setApiEndpoint(newApiInstance.defaults.baseURL);
+                  setApiEndpoint(newBaseURL);
+                  setApiInstance(switchedApiInstance);
                 }
               } catch (switchError) {
                 console.error('Failed to switch API endpoint:', switchError);
@@ -197,17 +188,25 @@ export const AuthProvider = ({ children }) => {
           }
         );
 
-        // Store the api instance
-        api = apiInstance;
+        if (isMounted) {
+          setApiEndpoint(baseURL);
+          setApiInstance(newApiInstance);
+        }
 
         return () => {
-          apiInstance.interceptors.request.eject(requestInterceptor);
-          apiInstance.interceptors.response.eject(responseInterceptor);
+          newApiInstance.interceptors.request.eject(requestInterceptor);
+          newApiInstance.interceptors.response.eject(responseInterceptor);
         };
       } catch (error) {
         console.error('Failed to initialize API:', error);
         if (isMounted) {
-          setApiInitialized(false);
+          setApiEndpoint(null);
+          setApiInstance(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setInitialized(true);
         }
       }
     };
@@ -221,7 +220,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check authentication status after API is initialized
   useEffect(() => {
-    if (!apiInitialized) return;
+    if (!apiInstance) return;
 
     const checkAuthStatus = async () => {
       setLoading(true);
@@ -231,22 +230,18 @@ export const AuthProvider = ({ children }) => {
         
         if (!token) {
           setUserWithPersistence(null);
-          setLoading(false);
-          setInitialized(true);
           return;
         }
         
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         if (savedUser) {
           setUserWithPersistence(savedUser);
-          setLoading(false);
-          setInitialized(true);
           return;
         }
         
         try {
-          const response = await api.get('/auth/validate');
+          const response = await apiInstance.get('/auth/validate');
           if (response.data && !response.data.temporaryAccess) {
             setUserWithPersistence(response.data);
           }
@@ -259,16 +254,17 @@ export const AuthProvider = ({ children }) => {
         console.error("Auth check error:", error);
       } finally {
         setLoading(false);
-        setInitialized(true);
       }
     };
 
     checkAuthStatus();
-  }, [apiInitialized, setUserWithPersistence]);
+  }, [apiInstance, setUserWithPersistence]);
 
   const validateToken = useCallback(async () => {
+    if (!apiInstance) return false;
+
     try {
-      const response = await api.get('/auth/validate');
+      const response = await apiInstance.get('/auth/validate');
       if (response.data && !response.data.temporaryAccess) {
         setUserWithPersistence(response.data);
       }
@@ -277,15 +273,23 @@ export const AuthProvider = ({ children }) => {
       console.log('Token validation error:', error.response?.data || error.message);
       return false;
     }
-  }, [setUserWithPersistence]);
+  }, [apiInstance, setUserWithPersistence]);
 
   const login = async (credentials) => {
+    if (!apiInstance) {
+      console.error('API not initialized');
+      return {
+        success: false,
+        error: 'Authentication service is not available'
+      };
+    }
+
     try {
-      const response = await api.post('/auth/login', credentials);
+      const response = await apiInstance.post('/auth/login', credentials);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
       setAuthError(null);
       return { success: true, user };
@@ -299,12 +303,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
+    if (!apiInstance) {
+      return {
+        success: false,
+        error: 'Authentication service is not available'
+      };
+    }
+
     try {
-      const response = await api.post('/auth/register', userData);
+      const response = await apiInstance.post('/auth/register', userData);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
       setAuthError(null);
       return { success: true };
@@ -318,6 +329,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateProfile = async (profileData) => {
+    if (!apiInstance) {
+      return {
+        success: false,
+        error: 'Authentication service is not available'
+      };
+    }
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -360,7 +378,7 @@ export const AuthProvider = ({ children }) => {
         formDataToSend = profileData;
       }
       
-      const response = await api.put('/users/profile', formDataToSend, { headers });
+      const response = await apiInstance.put('/users/profile', formDataToSend, { headers });
       
       if (response.data && response.data.user) {
         const updatedUser = response.data.user;
@@ -392,7 +410,9 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     persistentStorage.clearUser();
-    delete api.defaults.headers.common['Authorization'];
+    if (apiInstance) {
+      delete apiInstance.defaults.headers.common['Authorization'];
+    }
     setUser(null);
     setAuthError(null);
   };
@@ -416,9 +436,15 @@ export const AuthProvider = ({ children }) => {
 
   const switchApiEndpoint = async () => {
     try {
-      const newApiInstance = await createApiInstance();
-      api = newApiInstance;
-      setApiEndpoint(newApiInstance.defaults.baseURL);
+      const newBaseURL = await determineBaseURL();
+      const newApiInstance = axios.create({
+        baseURL: newBaseURL,
+        withCredentials: true,
+        timeout: 10000
+      });
+
+      setApiEndpoint(newBaseURL);
+      setApiInstance(newApiInstance);
       return true;
     } catch (error) {
       console.error('Failed to switch API endpoint:', error);
@@ -433,7 +459,6 @@ export const AuthProvider = ({ children }) => {
       initialized,
       authError,
       apiEndpoint,
-      apiInitialized,
       login,
       register,
       logout,
@@ -457,3 +482,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;
