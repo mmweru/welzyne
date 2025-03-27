@@ -18,19 +18,22 @@ const Login = () => {
     setError('');
   
     try {
+      console.log('Current API Endpoint:', apiEndpoint); // Log current endpoint
       const result = await login({
         identifier,
         password
       });
   
       if (result.success) {
-        // Existing navigation logic
+        // Existing logic
       } else {
         console.error('Login failed:', result.error);
+        console.log('Full error details:', result);
         setError(result.error || 'Login failed');
       }
     } catch (err) {
       console.error('Unexpected login error:', err);
+      console.log('Error details:', err.response?.data || err.message);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);

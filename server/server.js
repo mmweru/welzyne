@@ -27,20 +27,53 @@ dotenv.config({
 const app = express();
 const httpServer = createServer(app);
 
-const corsOrigins = [
-  'http://localhost:5173', 
-  'http://localhost:3000', 
-  'https://welzyne.com', 
-  'https://welzyne.onrender.com',
-  process.env.FRONTEND_URL
-];
+const corsOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      'https://welzyne.com',      // Your primary domain
+      'https://www.welzyne.com',  // www subdomain
+      'https://welzyne.onrender.com', // Fallback domain
+      process.env.FRONTEND_URL    // From environment variable
+    ].filter(Boolean)  // Remove any undefined values
+  : [
+      'http://localhost:5173',    // Vite dev server
+      'http://localhost:3000',    // React dev server
+      'http://localhost:5000',    // Typical backend server port
+      'http://localhost:7001',    // Your current backend port
+      process.env.FRONTEND_URL    // From environment variable
+    ];
 
+// Detailed CORS configuration
 app.use(cors({
-  origin: corsOrigins,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (corsOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin'
+  ],
+  optionsSuccessStatus: 200
 }));
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // Initialize Socket.IO with environment-specific config
 const io = new Server(httpServer, {
