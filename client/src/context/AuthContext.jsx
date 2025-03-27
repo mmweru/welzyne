@@ -50,8 +50,8 @@ const persistentStorage = {
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
-    ? 'https://welzyne.onrender.com/api' 
-    : import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    ? 'https://courier-mrh5.onrender.com/' 
+    : import.meta.env.VITE_API_URL || 'http://localhost:5000',
   withCredentials: true
 });
 
