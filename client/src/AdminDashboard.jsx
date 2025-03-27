@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Package, Truck, Clock, Settings, User, ChevronRight, Plus, Edit, Trash, Mail, Phone } from './CustomIcons';
+import { Package, Truck, Clock, Settings, User, ChevronRight, Plus, Edit, Trash, Mail, Phone, X } from './CustomIcons';
 import emailjs from '@emailjs/browser';
 import { useAuth } from './context/AuthContext';
 import './AdminDashboard.css';
@@ -21,6 +21,8 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user: currentUser } = useAuth();
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Existing state variables
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -41,7 +43,6 @@ const AdminDashboard = () => {
   const [userPhone, setUserPhone] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
-
 
   // Sample data for services
   const [services] = useState([
@@ -135,6 +136,7 @@ const AdminDashboard = () => {
 
   // Handle user status toggle
   const handleStatusToggle = async (userId, currentStatus) => {
+    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     try {
       await api.patch(`/users/${userId}/status`, {
         status: newStatus
@@ -207,7 +209,8 @@ const AdminDashboard = () => {
           )
         );
   
-        alert('Order status updated successfully!');
+        setShowSuccessPopup(true);
+        setSuccessMessage('Order status updated successfully!');
         setShowOrderStatusModal(false);
         setEditingOrder(null);
       } else {
@@ -220,6 +223,7 @@ const AdminDashboard = () => {
       setLoading(false);
     }
   };
+
   // Generate parcel number
   const generateParcelNumber = () => {
     const carrierCode = 'WELZYNE'; // First Digits: Carrier
@@ -289,7 +293,8 @@ const AdminDashboard = () => {
         setOrders((prevOrders) => [...prevOrders, response.data]);
   
         // Show success message
-        alert(`Booking Successful! Your Parcel Number is: ${generatedParcelNumber}`);
+        setSuccessMessage(`Booking Successful! Your Parcel Number is: ${generatedParcelNumber}`);
+        setShowSuccessPopup(true);
   
         // Send email confirmation
         const emailParams = {
@@ -329,160 +334,69 @@ const AdminDashboard = () => {
     }
   };
 
-  // Add this function to poll for payment status
-const startPaymentStatusCheck = async (checkoutRequestId, orderId) => {
-  let attempts = 0;
-  const maxAttempts = 10;
-  const interval = 5000; // 5 seconds
-  
-  const checkStatus = async () => {
-    try {
-      const response = await api.post('/mpesa/status', {
-        checkoutRequestId
-      }, {
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      
-      // If payment completed successfully
-      if (response.data.success && response.data.data.ResultCode === 0) {
-        alert('Payment completed successfully!');
-        
-        // Update local order state
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === orderId ? 
-            {...order, paymentConfirmed: true, paymentStatus: 'Completed'} : order
-          )
-        );
-        
-        // Send email confirmation
-        const order = orders.find(o => o.id === orderId);
-        if (order) {
-          const emailParams = {
-            pickup: order.pickupLocation,
-            delivery: order.destination,
-            details: order.packageDetails,
-            type: order.courierType,
-            payment: 'Confirmed (M-Pesa)',
-            mpesa: order.mpesaNumber,
-            price: order.amount,
-            parcelNumber: order.id,
-            userName: order.customer,
-            userEmail: order.email,
-            wholeBooking: order.wholeBooking ? 'Yes' : 'No'
-          };
-          
-          await emailjs.send('service_dxo1qa8', 'template_ha6frtq', emailParams);
-        }
-        
-        return true;
-      }
-      
-      // If payment failed
-      if (response.data.success && response.data.data.ResultCode !== 0) {
-        alert(`Payment failed: ${response.data.data.ResultDesc}`);
-        return true;
-      }
-      
-      // If we've reached maximum attempts
-      if (++attempts >= maxAttempts) {
-        alert('Could not confirm payment status. Please check your M-Pesa and try again if needed.');
-        return true;
-      }
-      
-      // Continue polling
-      return false;
-    } catch (error) {
-      console.error('Error checking payment status:', error);
-      if (++attempts >= maxAttempts) {
-        alert('Could not confirm payment status due to network error. Please check your M-Pesa.');
-        return true;
-      }
-      return false;
-    }
+  const resetFormFields = () => {
+    setPaymentConfirmed(false);
+    setCourierPrice('');
+    setParcelNumber('');
+    setUserName('');
+    setUserEmail('');
+    setUserPhone('');
+    setRecipientName('');
+    setRecipientPhone('');
+    setPickupLocation('');
+    setDeliveryLocation('');
+    setCourierType('standard');
+    setWholeBooking(false);
+    setPaymentMode('mpesa');
   };
-  
-  const poll = async () => {
-    const done = await checkStatus();
-    if (!done) {
-      setTimeout(poll, interval);
-    }
-  };
-  
-  // Start polling
-  setTimeout(poll, interval);
-};
-  
 
-const resetFormFields = () => {
-  setPaymentConfirmed(false);
-  setCourierPrice('');
-  setParcelNumber('');
-  setUserName('');
-  setUserEmail('');
-  setUserPhone(''); // Clear sender's phone
-  setRecipientName(''); // Clear recipient's name
-  setRecipientPhone(''); // Clear recipient's phone
-  setPickupLocation('');
-  setDeliveryLocation('');
-  setCourierType('standard');
-  setWholeBooking(false);
-  setPaymentMode('mpesa');
-};
-
-const renderUsersSection = () => (
-  <div className="space-y-4">
-    <h2 className="text-2xl font-bold mb-6">Manage Users</h2>
-    {loading ? (
-      <div className="text-center text-white">Loading users...</div>
-    ) : error ? (
-      <div className="text-center text-red-500">{error}</div>
-    ) : (
-      <div className="space-y-4">
-        {users.map((user) => (
-          <div
-            key={user._id}
-            className="bg-white/5 p-4 rounded-lg flex items-center justify-between hover:bg-white/10 transition-all duration-300"
-          >
-            <div>
-              <h3 className="font-bold">{user.username}</h3>
-              <div className="flex items-center text-blue-200">
-                <Phone size={16} className="mr-2" /> 
-                {user.phone}
+  const renderUsersSection = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold mb-6">Manage Users</h2>
+      {loading ? (
+        <div className="text-center text-white">Loading users...</div>
+      ) : error ? (
+        <div className="text-center text-red-500">{error}</div>
+      ) : (
+        <div className="space-y-4">
+          {users.map((user) => (
+            <div
+              key={user._id}
+              className="bg-white/5 p-4 rounded-lg flex items-center justify-between hover:bg-white/10 transition-all duration-300"
+            >
+              <div>
+                <h3 className="font-bold">{user.username}</h3>
+                <div className="flex items-center text-blue-200">
+                  <Phone size={16} className="mr-2" /> 
+                  {user.phone}
+                </div>
+                <p className="text-gray-400">{user.email}</p>
               </div>
-              <p className="text-gray-400">{user.email}</p>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => handleStatusToggle(user._id, user.status)}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    user.status === 'Active'
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {user.status}
+                </button>
+                <button onClick={() => setSelectedUser(user)}>
+                  <Edit size={20} className="text-blue-400 hover:text-blue-300" />
+                </button>
+                <button onClick={() => handleDeleteUser(user._id)}>
+                  <Trash size={20} className="text-red-400 hover:text-red-300" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => handleStatusToggle(user._id, user.status)}
-                className={`px-3 py-1 rounded-full text-sm ${
-                  user.status === 'Active'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-red-500/20 text-red-400'
-                }`}
-              >
-                {user.status}
-              </button>
-              <button onClick={() => setSelectedUser(user)}>
-                <Edit size={20} className="text-blue-400 hover:text-blue-300" />
-              </button>
-              <button onClick={() => handleDeleteUser(user._id)}>
-                <Trash size={20} className="text-red-400 hover:text-red-300" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
-  // Render orders section with management features
-  // Replace renderOrdersSection in AdminDashboard.js
   const renderOrderStatusModal = () => (
     showOrderStatusModal && editingOrder && (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -537,7 +451,6 @@ const renderUsersSection = () => (
       </div>
     )
   );
-
 
   const renderOrdersSection = () => (
     <section className="bg-gray-900/60 rounded-xl p-6 backdrop-blur">
@@ -603,7 +516,7 @@ const renderUsersSection = () => (
                   {new Date(order.date).toLocaleDateString()}
                 </td>
                 <td className="p-3 space-y-2">
-   <button
+                  <button
                     onClick={() => {
                       setEditingOrder({ 
                         id: order.id, 
@@ -616,42 +529,6 @@ const renderUsersSection = () => (
                   >
                     Update Status
                   </button>
-                  {order.paymentMode === 'mpesa' && !order.paymentConfirmed && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          if (window.confirm(`Resend STK push to ${order.mpesaNumber}?`)) {
-                            const response = await api.post('/mpesa/stkpush', {
-                              phoneNumber,
-                              amount,
-                              orderId
-                            }, {
-                              headers: { 
-                                Authorization: `Bearer ${localStorage.getItem('token')}`,
-                                'Content-Type': 'application/json'
-                              }
-                            });
-                            
-                            if (response.data.success) {
-                              alert(`STK push sent to ${order.mpesaNumber}. Please ask customer to complete the payment on their phone.`);
-                              
-                              // Start polling for payment status
-                              const checkoutRequestId = response.data.data.CheckoutRequestID;
-                              startPaymentStatusCheck(checkoutRequestId, order.id);
-                            } else {
-                              alert(`Failed to initiate M-Pesa payment: ${response.data.message}`);
-                            }
-                          }
-                        } catch (error) {
-                          console.error('STK Push Error:', error);
-                          alert(`Failed to initiate M-Pesa payment. ${error.response?.data?.message || error.message}`);
-                        }
-                      }}
-                      className="px-3 py-1 block w-full bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
-                    >
-                      Resend STK Push
-                    </button>
-                  )}
                   <button
                     onClick={() => handleDeleteOrder(order.id)}
                     className="px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
@@ -667,132 +544,147 @@ const renderUsersSection = () => (
     </section>
   );
 
-return (
-  <div className="min-h-screen p-6 font-['Jacques_Francois']">
-    {/* Grid Background */}
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-blue-900/90 to-darkblue-800/80" />
-      <div className="absolute inset-0 opacity-10">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-silver/50 to-transparent transform"
-            style={{ top: `${i * 5}vh`, animationDelay: `${i * 0.1}s` }}
-          />
-        ))}
-      </div>
-    </div>
-
-    {/* Content */}
-    <div className="relative z-10 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white animate-fadeIn">
-        <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-blue-200">Manage your courier service operations</p>
+  return (
+    <div className="min-h-screen p-6 font-['Jacques_Francois']">
+      {/* Grid Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-blue-900/90 to-darkblue-800/80" />
+        <div className="absolute inset-0 opacity-10">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-silver/50 to-transparent transform"
+              style={{ top: `${i * 5}vh`, animationDelay: `${i * 0.1}s` }}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-lg p-2 flex space-x-2 nav-responsive">
-        {['dashboard', 'users', 'orders', 'services'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 rounded-lg transition-all duration-300 ${
-              activeTab === tab
-                ? 'bg-blue-500 text-white'
-                : 'text-blue-200 hover:bg-white/5'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
+      {/* Content */}
+      <div className="relative z-10 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white animate-fadeIn">
+          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-blue-200">Manage your courier service operations</p>
+        </div>
 
-      {/* Main Content Area */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white min-h-[600px] animate-fadeIn">
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            <div className="grid-container">
-              <div className="bg-white/5 p-6 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Total Users</h3>
-                  <User size={24} className="text-blue-400" />
-                </div>
-                <p className="text-3xl font-bold mt-4">{users.length}</p>
-              </div>
-              <div className="bg-white/5 p-6 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Active Orders</h3>
-                  <Package size={24} className="text-green-400" />
-                </div>
-                <p className="text-3xl font-bold mt-4">{orders.length}</p>
-              </div>
-              <div className="bg-white/5 p-6 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Services</h3>
-                  <Truck size={24} className="text-yellow-400" />
-                </div>
-                <p className="text-3xl font-bold mt-4">{services.length}</p>
-              </div>
-            </div>
-
+        {/* Navigation Tabs */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-2 flex space-x-2 nav-responsive">
+          {['dashboard', 'users', 'orders', 'services'].map((tab) => (
             <button
-              onClick={() => setShowCourierForm(true)}
-              className="w-full bg-blue-500 hover:bg-blue-600 p-4 rounded-lg font-bold transition-colors duration-300"
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === tab
+                  ? 'bg-blue-500 text-white'
+                  : 'text-blue-200 hover:bg-white/5'
+              }`}
             >
-              Book a Courier
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
 
-        {activeTab === 'users' && renderUsersSection()}
-        {activeTab === 'orders' && renderOrdersSection()}
+        {/* Main Content Area */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white min-h-[600px] animate-fadeIn">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              <div className="grid-container">
+                <div className="bg-white/5 p-6 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Total Users</h3>
+                    <User size={24} className="text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold mt-4">{users.length}</p>
+                </div>
+                <div className="bg-white/5 p-6 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Active Orders</h3>
+                    <Package size={24} className="text-green-400" />
+                  </div>
+                  <p className="text-3xl font-bold mt-4">{orders.length}</p>
+                </div>
+                <div className="bg-white/5 p-6 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Services</h3>
+                    <Truck size={24} className="text-yellow-400" />
+                  </div>
+                  <p className="text-3xl font-bold mt-4">{services.length}</p>
+                </div>
+              </div>
 
-        {activeTab === 'services' && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold">Manage Services</h2>
               <button
-                onClick={() => setShowAddService(true)}
-                className="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg flex items-center space-x-2 text-sm sm:text-base"
+                onClick={() => {
+                  setShowCourierForm(true);
+                  setShowSuccessPopup(false);
+                }}
+                className="w-full bg-blue-500 hover:bg-blue-600 p-4 rounded-lg font-bold transition-colors duration-300"
               >
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Add Service</span>
+                Book a Courier
               </button>
             </div>
+          )}
 
-            <div className="grid gap-4">
-              {services.map((service) => (
-                <div key={service.id} className="bg-white/5 hover:bg-white/10 p-4 rounded-lg">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h3 className="font-bold text-sm sm:text-base">{service.name}</h3>
-                      <p className="text-blue-200 text-xs sm:text-sm">{service.duration}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <p className="font-bold text-sm sm:text-base">KES {service.price}</p>
-                      <div className="flex gap-2">
-                        <button>
-                          <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 hover:text-blue-300" />
-                        </button>
-                        <button>
-                          <Trash className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 hover:text-red-300" />
-                        </button>
+          {activeTab === 'users' && renderUsersSection()}
+          {activeTab === 'orders' && renderOrdersSection()}
+
+          {activeTab === 'services' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold">Manage Services</h2>
+                <button
+                  onClick={() => setShowAddService(true)}
+                  className="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg flex items-center space-x-2 text-sm sm:text-base"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Add Service</span>
+                </button>
+              </div>
+
+              <div className="grid gap-4">
+                {services.map((service) => (
+                  <div key={service.id} className="bg-white/5 hover:bg-white/10 p-4 rounded-lg">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div>
+                        <h3 className="font-bold text-sm sm:text-base">{service.name}</h3>
+                        <p className="text-blue-200 text-xs sm:text-sm">{service.duration}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="font-bold text-sm sm:text-base">KES {service.price}</p>
+                        <div className="flex gap-2">
+                          <button>
+                            <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 hover:text-blue-300" />
+                          </button>
+                          <button>
+                            <Trash className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 hover:text-red-300" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
       {/* Courier Booking Modal */}
       {showCourierForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-hidden">
           <div className="bg-gray-800 p-8 rounded-lg w-full max-w-4xl m-4 max-h-[90vh] flex flex-col animate-fadeIn modal-content">
-            <h2 className="text-2xl font-bold text-white mb-6">Book a Courier</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">Book a Courier</h2>
+              <button 
+                onClick={() => {
+                  setShowCourierForm(false);
+                  resetFormFields();
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
             <div className="overflow-y-auto flex-grow pr-2">
               <form onSubmit={handleCourierSubmit} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
@@ -823,32 +715,32 @@ return (
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-gray-300 mb-2">Recipient's Full Name</label>
-                  <input
-                    type="text"
-                    name="recipient-name"
-                    className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
-                    required
-                    value={recipientName}
-                    onChange={(e) => setRecipientName(e.target.value)}
-                  />
+                  <div>
+                    <label className="block text-gray-300 mb-2">Recipient's Full Name</label>
+                    <input
+                      type="text"
+                      name="recipient-name"
+                      className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                      required
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 mb-2">Recipient's Phone</label>
+                    <input
+                      type="tel"
+                      name="recipient-phone"
+                      className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                      required
+                      value={recipientPhone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      placeholder="0712345678"
+                      pattern="^(07|01)[0-9]{8}$"
+                      title="Please enter a valid 10-digit phone number starting with 07 or 01"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-300 mb-2">Recipient's Phone</label>
-                  <input
-                    type="tel"
-                    name="recipient-phone"
-                    className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
-                    required
-                    value={recipientPhone}
-                    onChange={(e) => setRecipientPhone(e.target.value)}
-                    placeholder="0712345678"
-                    pattern="^(07|01)[0-9]{8}$"
-                    title="Please enter a valid 10-digit phone number starting with 07 or 01"
-                  />
-                </div>
-              </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-300 mb-2">Pickup Location</label>
@@ -897,37 +789,36 @@ return (
                       <option value="standard">Standard</option>
                       <option value="express">Express</option>
                       <option value="same-day">Same-day</option>
-                  </select>
+                    </select>
                   </div>
                   <div>
-                  <label className="block text-gray-300 mb-2">Payment Mode</label>
-                  <select
-                    name="payment-mode"
-                    className="w-full p-3 rounded-lg bg-gray-700 text-black border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value)}
-                    required
-                  >
-                    <option value="mpesa">M-Pesa</option>
-                    <option value="cash">Cash</option>
-                  </select>
-                </div>
-                {paymentMode === 'mpesa' && (
-                  <div>
-                    <label className="block text-gray-300 mb-2">M-Pesa Number</label>
-                    <input
-                      type="text"
-                      name="mpesa-number"
-                      className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
-                      placeholder="0712345678"
-                      pattern="^(07|01)[0-9]{8}$"
-                      title="Please enter a valid 10-digit M-Pesa number starting with 07 or 01"
+                    <label className="block text-gray-300 mb-2">Payment Mode</label>
+                    <select
+                      name="payment-mode"
+                      className="w-full p-3 rounded-lg bg-gray-700 text-black border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value)}
                       required
-                    />
+                    >
+                      <option value="mpesa">M-Pesa</option>
+                      <option value="cash">Cash</option>
+                    </select>
                   </div>
-                )}
+                  {paymentMode === 'mpesa' && (
+                    <div>
+                      <label className="block text-gray-300 mb-2">M-Pesa Number</label>
+                      <input
+                        type="text"
+                        name="mpesa-number"
+                        className="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
+                        placeholder="0712345678"
+                        pattern="^(07|01)[0-9]{8}$"
+                        title="Please enter a valid 10-digit M-Pesa number starting with 07 or 01"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
-                
 
                 {/* Whole Truck Booking Option */}
                 <div className="flex items-center space-x-4 mb-4">
@@ -1002,43 +893,29 @@ return (
       )}
 
       {/* Order Status Update Modal */}
-      {showOrderStatusModal && editingOrder && (
+      {renderOrderStatusModal()}
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg w-full max-w-md animate-fadeIn modal-content">
-            <h2 className="text-xl font-bold text-white mb-4">Update Order Status</h2>
-            <div className="space-y-4">
-              <p className="text-blue-200">Order ID: {editingOrder.id}</p>
-              <div>
-                <label className="block text-gray-300 mb-2">Current Status: {editingOrder.currentStatus}</label>
-                <select
-                  value={editingOrder.newStatus}
-                  onChange={(e) => setEditingOrder({...editingOrder, newStatus: e.target.value})}
-                  className="w-full p-3 rounded-lg bg-gray-700 text-black border border-gray-600 focus:outline-none focus:ring focus:ring-blue-500"
-                >
-                  <option value="Order Placed">Order Placed</option>
-                  <option value="Processing">Processing</option>
-                  <option value="In Transit">In Transit</option>
-                  <option value="Out for Delivery">Out for Delivery</option>
-                  <option value="Delivered">Delivered</option>
-              </select>
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowOrderStatusModal(false);
-                    setEditingOrder(null);
-                  }}
-                  className="px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateOrderStatus}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors duration-300"
-                >
-                  Update Status
-                </button>
-              </div>
+          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 animate-fadeIn">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-green-400">Success!</h3>
+              <button 
+                onClick={() => setShowSuccessPopup(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-gray-200 mb-6">{successMessage}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowSuccessPopup(false)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>
