@@ -1,29 +1,20 @@
+// AuthContext.js
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-// Domain priority configuration
-const DOMAIN_CONFIG = {
-  primary: 'https://welzyne.com/api',
-  fallback: 'https://welzyne.onrender.com/api',
-  local: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  healthCheckEndpoint: '/health'
-};
-
-// Persistent storage helper
+// Create a persistent user storage helper
 const persistentStorage = {
   saveUser: (user) => {
     try {
       if (user) {
         localStorage.setItem('currentUser', JSON.stringify(user));
-        localStorage.setItem('lastApiEndpoint', window.location.origin + '/api');
       }
     } catch (error) {
       console.error('Failed to save user to localStorage:', error);
     }
   },
-  
   getUser: () => {
     try {
       const savedUser = localStorage.getItem('currentUser');
@@ -33,17 +24,13 @@ const persistentStorage = {
       return null;
     }
   },
-  
   clearUser: () => {
     try {
       localStorage.removeItem('currentUser');
-      localStorage.removeItem('token');
-      localStorage.removeItem('lastApiEndpoint');
     } catch (error) {
       console.error('Failed to clear user from localStorage:', error);
     }
   },
-  
   saveLastVisitedRoute: (route) => {
     try {
       localStorage.setItem('lastVisitedRoute', route);
@@ -51,7 +38,6 @@ const persistentStorage = {
       console.error('Failed to save last visited route:', error);
     }
   },
-  
   getLastVisitedRoute: () => {
     try {
       return localStorage.getItem('lastVisitedRoute') || '/';
@@ -59,71 +45,60 @@ const persistentStorage = {
       console.error('Failed to retrieve last visited route:', error);
       return '/';
     }
-  },
-  
-  getLastApiEndpoint: () => {
-    try {
-      return localStorage.getItem('lastApiEndpoint');
-    } catch (error) {
-      console.error('Failed to retrieve last API endpoint:', error);
-      return null;
-    }
   }
 };
 
-// Health check function
-const checkDomainAvailability = async (baseUrl) => {
-  try {
-    const response = await axios.get(`${baseUrl}${DOMAIN_CONFIG.healthCheckEndpoint}`, { 
-      timeout: 3000 
-    });
-    return response.status === 200;
-  } catch (error) {
-    console.warn(`Health check failed for ${baseUrl}:`, error.message);
-    return false;
-  }
-};
-
-// Determine the best base URL to use
-const determineBaseURL = async () => {
-  if (process.env.NODE_ENV !== 'production') {
-    return DOMAIN_CONFIG.local;
-  }
-
-  // Check if we have a cached endpoint that worked recently
-  const lastWorkingEndpoint = persistentStorage.getLastApiEndpoint();
-  if (lastWorkingEndpoint) {
-    const isStillAvailable = await checkDomainAvailability(lastWorkingEndpoint);
-    if (isStillAvailable) {
-      return lastWorkingEndpoint;
-    }
-  }
-
-  // Check primary domain first
-  const isPrimaryAvailable = await checkDomainAvailability(DOMAIN_CONFIG.primary);
-  if (isPrimaryAvailable) {
-    return DOMAIN_CONFIG.primary;
-  }
-
-  // Fall back to render.com if primary is unavailable
-  const isFallbackAvailable = await checkDomainAvailability(DOMAIN_CONFIG.fallback);
-  if (isFallbackAvailable) {
-    return DOMAIN_CONFIG.fallback;
-  }
-
-  // If both are down, default to primary (will fail gracefully)
-  return DOMAIN_CONFIG.primary;
-};
+const api = axios.create({
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? 'https://welzyne.onrender.com/api' 
+    : import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  withCredentials: true
+});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(persistentStorage.getUser());
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [authError, setAuthError] = useState(null);
-  
-  // Simplified API endpoint management
-  const [apiEndpoint, setApiEndpoint] = useState(null);
-  const [apiInstance, setApiInstance] = useState(null);
+
+  // Set up axios request interceptor to include the token
+  useEffect(() => {
+    const requestInterceptor = api.interceptors.request.use(config => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    return () => {
+      api.interceptors.request.eject(requestInterceptor);
+    };
+  }, []);
+
+  // Set up axios response interceptor to handle errors
+  useEffect(() => {
+    const responseInterceptor = api.interceptors.response.use(
+      response => {
+        const newToken = response.headers['x-new-token'];
+        if (newToken) {
+          localStorage.setItem('token', newToken);
+          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        }
+        return response;
+      },
+      error => {
+        if (error.response && error.response.status === 401) {
+          console.log('401 error detected, but not logging out');
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
 
   // Custom setter that persists to localStorage
   const setUserWithPersistence = useCallback((userData) => {
@@ -131,97 +106,8 @@ export const AuthProvider = ({ children }) => {
     persistentStorage.saveUser(userData);
   }, []);
 
-  // Initialize API and check endpoint on component mount
+  // Check authentication status on app load
   useEffect(() => {
-    let isMounted = true;
-    
-    const initializeApi = async () => {
-      try {
-        const baseURL = await determineBaseURL();
-        
-        const newApiInstance = axios.create({
-          baseURL,
-          withCredentials: true,
-          timeout: 10000
-        });
-
-        // Set up interceptors
-        const requestInterceptor = newApiInstance.interceptors.request.use(config => {
-          const token = localStorage.getItem('token');
-          if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-          }
-          return config;
-        });
-
-        const responseInterceptor = newApiInstance.interceptors.response.use(
-          response => {
-            const newToken = response.headers['x-new-token'];
-            if (newToken) {
-              localStorage.setItem('token', newToken);
-              newApiInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-            }
-            return response;
-          },
-          async (error) => {
-            // If the error is due to the endpoint being down, try to switch
-            if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
-              console.log('Endpoint might be down, attempting to switch...');
-              try {
-                const newBaseURL = await determineBaseURL();
-                const switchedApiInstance = axios.create({
-                  baseURL: newBaseURL,
-                  withCredentials: true,
-                  timeout: 10000
-                });
-                
-                if (isMounted) {
-                  setApiEndpoint(newBaseURL);
-                  setApiInstance(switchedApiInstance);
-                }
-              } catch (switchError) {
-                console.error('Failed to switch API endpoint:', switchError);
-              }
-            }
-            
-            return Promise.reject(error);
-          }
-        );
-
-        if (isMounted) {
-          setApiEndpoint(baseURL);
-          setApiInstance(newApiInstance);
-        }
-
-        return () => {
-          newApiInstance.interceptors.request.eject(requestInterceptor);
-          newApiInstance.interceptors.response.eject(responseInterceptor);
-        };
-      } catch (error) {
-        console.error('Failed to initialize API:', error);
-        if (isMounted) {
-          setApiEndpoint(null);
-          setApiInstance(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          setInitialized(true);
-        }
-      }
-    };
-
-    initializeApi();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Check authentication status after API is initialized
-  useEffect(() => {
-    if (!apiInstance) return;
-
     const checkAuthStatus = async () => {
       setLoading(true);
       try {
@@ -230,18 +116,22 @@ export const AuthProvider = ({ children }) => {
         
         if (!token) {
           setUserWithPersistence(null);
+          setLoading(false);
+          setInitialized(true);
           return;
         }
         
-        apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         if (savedUser) {
           setUserWithPersistence(savedUser);
+          setLoading(false);
+          setInitialized(true);
           return;
         }
         
         try {
-          const response = await apiInstance.get('/auth/validate');
+          const response = await api.get('/auth/validate');
           if (response.data && !response.data.temporaryAccess) {
             setUserWithPersistence(response.data);
           }
@@ -254,17 +144,16 @@ export const AuthProvider = ({ children }) => {
         console.error("Auth check error:", error);
       } finally {
         setLoading(false);
+        setInitialized(true);
       }
     };
 
     checkAuthStatus();
-  }, [apiInstance, setUserWithPersistence]);
+  }, [setUserWithPersistence]);
 
   const validateToken = useCallback(async () => {
-    if (!apiInstance) return false;
-
     try {
-      const response = await apiInstance.get('/auth/validate');
+      const response = await api.get('/auth/validate');
       if (response.data && !response.data.temporaryAccess) {
         setUserWithPersistence(response.data);
       }
@@ -273,23 +162,15 @@ export const AuthProvider = ({ children }) => {
       console.log('Token validation error:', error.response?.data || error.message);
       return false;
     }
-  }, [apiInstance, setUserWithPersistence]);
+  }, [setUserWithPersistence]);
 
   const login = async (credentials) => {
-    if (!apiInstance) {
-      console.error('API not initialized');
-      return {
-        success: false,
-        error: 'Authentication service is not available'
-      };
-    }
-
     try {
-      const response = await apiInstance.post('/auth/login', credentials);
+      const response = await api.post('/auth/login', credentials);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
-      apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
       setAuthError(null);
       return { success: true, user };
@@ -303,19 +184,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    if (!apiInstance) {
-      return {
-        success: false,
-        error: 'Authentication service is not available'
-      };
-    }
-
     try {
-      const response = await apiInstance.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
-      apiInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUserWithPersistence(user);
       setAuthError(null);
       return { success: true };
@@ -328,14 +202,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Updated updateProfile to handle FormData and photo uploads
   const updateProfile = async (profileData) => {
-    if (!apiInstance) {
-      return {
-        success: false,
-        error: 'Authentication service is not available'
-      };
-    }
-
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -348,10 +216,12 @@ export const AuthProvider = ({ children }) => {
       let formDataToSend;
       let headers = { Authorization: `Bearer ${token}` };
       
+      // If profileData is already FormData (for photo uploads), use it directly
       if (profileData instanceof FormData) {
         formDataToSend = profileData;
         headers['Content-Type'] = 'multipart/form-data';
       } else {
+        // Basic validations for regular profile updates
         const { username, email, phone } = profileData;
         
         if (!username || username.length < 2) {
@@ -378,7 +248,8 @@ export const AuthProvider = ({ children }) => {
         formDataToSend = profileData;
       }
       
-      const response = await apiInstance.put('/users/profile', formDataToSend, { headers });
+      // Make API request - notice we're using /users/profile (not /api/users/profile)
+      const response = await api.put('/users/profile', formDataToSend, { headers });
       
       if (response.data && response.data.user) {
         const updatedUser = response.data.user;
@@ -410,9 +281,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     persistentStorage.clearUser();
-    if (apiInstance) {
-      delete apiInstance.defaults.headers.common['Authorization'];
-    }
+    delete api.defaults.headers.common['Authorization'];
     setUser(null);
     setAuthError(null);
   };
@@ -434,31 +303,12 @@ export const AuthProvider = ({ children }) => {
     return persistentStorage.getLastVisitedRoute();
   }, []);
 
-  const switchApiEndpoint = async () => {
-    try {
-      const newBaseURL = await determineBaseURL();
-      const newApiInstance = axios.create({
-        baseURL: newBaseURL,
-        withCredentials: true,
-        timeout: 10000
-      });
-
-      setApiEndpoint(newBaseURL);
-      setApiInstance(newApiInstance);
-      return true;
-    } catch (error) {
-      console.error('Failed to switch API endpoint:', error);
-      return false;
-    }
-  };
-
   return (
     <AuthContext.Provider value={{
       user,
       loading,
       initialized,
       authError,
-      apiEndpoint,
       login,
       register,
       logout,
@@ -467,8 +317,7 @@ export const AuthProvider = ({ children }) => {
       validateToken,
       saveLastVisitedRoute,
       getLastVisitedRoute,
-      switchApiEndpoint,
-      setUser: setUserWithPersistence
+      setUser: setUserWithPersistence // Export the setUser function to update context after profile changes
     }}>
       {children}
     </AuthContext.Provider>
@@ -482,5 +331,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-export default AuthContext;

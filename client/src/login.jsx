@@ -16,21 +16,24 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-  
+
     try {
       const result = await login({
-        identifier,
+        identifier, // This can be either username or email
         password
       });
-  
+
       if (result.success) {
-        // Existing navigation logic
+        // Allow admin to access both admin and user routes
+        if (result.user.role === 'admin') {
+          navigate('/admin'); // or wherever you want admin to land initially
+        } else {
+          navigate('/user');
+        }
       } else {
-        console.error('Login failed:', result.error);
         setError(result.error || 'Login failed');
       }
     } catch (err) {
-      console.error('Unexpected login error:', err);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
