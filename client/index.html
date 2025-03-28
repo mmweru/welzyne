@@ -4,12 +4,78 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welzyne Courier Services</title>
+    
+    <!-- Primary Meta Tags -->
+    <title>Welzyne Courier Services | Fast & Reliable Package Delivery in Kenya</title>
+    <meta name="description" content="Welzyne Courier Services - A Nyakuwuor Enterprises company offering express parcel delivery, logistics solutions, and freight services across Kenya. Same-day delivery available in major cities.">
+    
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.welzyne.com/">
+    <meta property="og:title" content="Welzyne Courier Services | Kenya's Trusted Delivery Partner">
+    <meta property="og:description" content="Fast, affordable, and reliable courier services across Kenya. A subsidiary of Nyakuwuor Enterprises.">
+    <meta property="og:image" content="https://www.welzyne.com/512.png">
+    
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:domain" content="welzyne.com">
+    <meta property="twitter:url" content="https://www.welzyne.com/">
+    <meta name="twitter:title" content="Welzyne Courier Services | Kenya's Trusted Delivery Partner">
+    <meta name="twitter:description" content="Fast, affordable, and reliable courier services across Kenya. A subsidiary of Nyakuwor Enterprises.">
+    <meta name="twitter:image" content="https://www.welzyne.com/512.png">
+    
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Welzyne Courier Services",
+      "url": "https://www.welzyne.com",
+      "logo": "https://www.welzyne.com/192.png",
+      "description": "Reliable courier and logistics services in Kenya",
+      "foundingDate": "2023",
+      "founders": [
+        {
+          "@type": "Person",
+          "name": "Joseph Ochieng"
+        }
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "1234 Delivery Lane",
+        "addressLocality": "Nairobi",
+        "addressRegion": "Nairobi",
+        "postalCode": "00100",
+        "addressCountry": "KE"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+254112866448",
+        "contactType": "customer service",
+        "email": "info@welzyne.com",
+        "areaServed": "Kenya",
+        "availableLanguage": ["English","Swahili"]
+      },
+      "sameAs": [
+        "https://www.facebook.com/welzyne",
+        "https://www.twitter.com/welzyne",
+        "https://www.linkedin.com/company/welzyne"
+      ],
+      "parentOrganization": {
+        "@type": "Organization",
+        "name": "Nyakuwuor Enterprises"
+      }
+    }
+    </script>
+    
+    <!-- Favicon and App Manifest -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="/icons/192.png" />
+    
+    <!-- EmailJS Integration -->
     <script type="text/javascript"
         src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
     </script>
@@ -20,14 +86,24 @@
           });
       })();
     </script>
-    <script type="module" src="script.js"></script>
+    
+    <!-- Google Maps API -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBdkwC4vuNuz_0NRQQItsz4MOJ5eOaont8&libraries=places"
+      async
+    ></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBdkwC4vuNuz_0NRQQItsz4MOJ5eOaont8&libraries=places"
-  async
-></script>
+    
+    <!-- Google Analytics (Recommended) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YOUR_GA_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-YOUR_GA_ID');
+    </script>
   </body>
 </html>

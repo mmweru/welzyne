@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "start": "node server/server.js"
+    "build": "vite build && npm run generate-sitemap",
+    "start": "node server/server.js",
+    "generate-sitemap": "node scripts/sitemap-generator.js"
   },
   "engines": {
     "node": "18.19.0",
