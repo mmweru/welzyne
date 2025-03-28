@@ -16,6 +16,15 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+body {
+  /* Hide any remaining GoDaddy elements */
+  [data-godaddy-impression],
+  .godaddy-branding {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
 
 a {
   font-weight: 500;
