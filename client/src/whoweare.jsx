@@ -8,24 +8,24 @@ const WhoWeAre = () => {
   const [counties, setCounties] = useState(0);
   const [users, setUsers] = useState(0);
 
-  const words = ['Fast', 'Vast', 'Last', 'Cast', 'Past'];
+  // const words = ['Fast'];
 
-  useEffect(() => {
-    let charIndex = 0;
-    const typeWord = () => {
-      const word = words[currentWordIndex];
-      setHeaderText(word.slice(0, charIndex + 1));
-      charIndex++;
-      if (charIndex === word.length) {
-        setTimeout(() => {
-          charIndex = 0;
-          setCurrentWordIndex((prevIndex) => (prevIndex + 1) % words.length);
-        }, 1000);
-      }
-    };
-    const typingInterval = setInterval(typeWord, 100);
-    return () => clearInterval(typingInterval);
-  }, [currentWordIndex]);
+  // useEffect(() => {
+  //   let charIndex = 0;
+  //   const typeWord = () => {
+  //     const word = words[currentWordIndex];
+  //     setHeaderText(word.slice(0, charIndex + 1));
+  //     charIndex++;
+  //     if (charIndex === word.length) {
+  //       setTimeout(() => {
+  //         charIndex = 0;
+  //         setCurrentWordIndex((prevIndex) => (prevIndex + 1) % words.length);
+  //       }, 1000);
+  //     }
+  //   };
+  //   const typingInterval = setInterval(typeWord, 100);
+  //   return () => clearInterval(typingInterval);
+  // }, [currentWordIndex]);
 
   useEffect(() => {
     const countiesInterval = setInterval(() => {
