@@ -6,6 +6,12 @@ const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
 const client = twilio(accountSid, authToken);
 
+console.log('Twilio Config Check:', {
+    accountSid: accountSid ? 'Present' : 'Missing',
+    authToken: authToken ? 'Present' : 'Missing',
+    twilioPhoneNumber: twilioPhoneNumber ? 'Present' : 'Missing',
+    nodeEnv: process.env.NODE_ENV
+});
 // Helper function to format Kenyan phone numbers
 const formatPhoneNumber = (phone) => {
     // Remove any non-digit characters

@@ -81,6 +81,44 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const renderSMSTracking = () => (
+    <div className="bg-gray-800 p-6 rounded-lg">
+      <h2 className="text-xl font-bold mb-4">SMS Delivery Status</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="text-left p-2">Order ID</th>
+              <th className="text-left p-2">Type</th>
+              <th className="text-left p-2">Time</th>
+              <th className="text-left p-2">Sender Status</th>
+              <th className="text-left p-2">Recipient Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map(order => (
+              order.smsNotifications?.map((sms, index) => (
+                <tr key={`${order.id}-${index}`} className="border-t border-gray-700">
+                  <td className="p-2">{order.id}</td>
+                  <td className="p-2">{sms.type}</td>
+                  <td className="p-2">{new Date(sms.timestamp).toLocaleString()}</td>
+                  <td className={`p-2 ${sms.senderNotification?.status === 'success' ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                    {sms.senderNotification?.status || 'N/A'}
+                  </td>
+                  <td className={`p-2 ${sms.recipientNotification?.status === 'success' ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                    {sms.recipientNotification?.status || 'N/A'}
+                  </td>
+                </tr>
+              ))
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   // Initialize WebSocket connection and email.js
   useEffect(() => {
     fetchUsers();
