@@ -4,6 +4,7 @@ import { Package, Truck, Clock, Settings, User, ChevronRight, Plus, Edit, Trash,
 import emailjs from '@emailjs/browser';
 import { useAuth } from './context/AuthContext';
 import './AdminDashboard.css';
+import { sendBookingConfirmation, sendStatusUpdate } from '../utils/smsService';
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
@@ -187,7 +188,7 @@ const AdminDashboard = () => {
       console.error('No order or status selected');
       return;
     }
-    
+
     try {
       setLoading(true);
       const response = await api.patch(`/orders/${editingOrder.id}/status`, {
@@ -198,17 +199,24 @@ const AdminDashboard = () => {
           'Content-Type': 'application/json'
         }
       });
-  
+
       if (response.data.success) {
         // Update local state with new order status
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === editingOrder.id 
-              ? { ...order, status: editingOrder.newStatus }
-              : order
-          )
+        const updatedOrders = orders.map(order =>
+          order.id === editingOrder.id
+            ? { ...order, status: editingOrder.newStatus }
+            : order
         );
-  
+        setOrders(updatedOrders);
+
+        // Find the updated order
+        const updatedOrder = updatedOrders.find(o => o.id === editingOrder.id);
+
+        // Send SMS notification
+        if (updatedOrder) {
+          await sendStatusUpdate(updatedOrder);
+        }
+
         setShowSuccessPopup(true);
         setSuccessMessage('Order status updated successfully!');
         setShowOrderStatusModal(false);
@@ -223,7 +231,6 @@ const AdminDashboard = () => {
       setLoading(false);
     }
   };
-
   // Generate parcel number
   const generateParcelNumber = () => {
     const carrierCode = 'WELZYNE'; // First Digits: Carrier
@@ -291,11 +298,9 @@ const AdminDashboard = () => {
       // Update local state if server update was successful
       if (response.status === 201) {
         setOrders((prevOrders) => [...prevOrders, response.data]);
-  
-        // Show success message
         setSuccessMessage(`Booking Successful! Your Parcel Number is: ${generatedParcelNumber}`);
         setShowSuccessPopup(true);
-  
+
         // Send email confirmation
         const emailParams = {
           pickup: pickupLocation,
@@ -314,6 +319,9 @@ const AdminDashboard = () => {
   
         await emailjs.send('service_dxo1qa8', 'template_ha6frtq', emailParams);
   
+        // Send SMS notifications
+        await sendBookingConfirmation(orderData);
+
         // Reset form and close modal
         setShowCourierForm(false);
         resetFormFields();
