@@ -30,6 +30,7 @@
     "nodemailer": "^6.10.0",
     "request-promise": "^4.2.6",
     "socket.io": "^4.8.1",
+    "twilio": "^5.7.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
