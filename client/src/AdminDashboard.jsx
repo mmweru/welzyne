@@ -717,8 +717,8 @@ const AdminDashboard = () => {
                       value={userPhone}
                       onChange={(e) => setUserPhone(e.target.value)}
                       placeholder="0712345678"
-                      pattern="^(07|01)[0-9]{8}$"
-                      title="Please enter a valid 10-digit phone number starting with 07 or 01"
+                      pattern="^(07|01)\d{8}$"
+                      title="Please enter a valid 10-digit Kenyan phone number starting with 07 or 01"
                     />
                   </div>
                 </div>
@@ -744,8 +744,8 @@ const AdminDashboard = () => {
                       value={recipientPhone}
                       onChange={(e) => setRecipientPhone(e.target.value)}
                       placeholder="0712345678"
-                      pattern="^(07|01)[0-9]{8}$"
-                      title="Please enter a valid 10-digit phone number starting with 07 or 01"
+                      pattern="^(07|01)\d{8}$"
+                      title="Please enter a valid 10-digit Kenyan phone number starting with 07 or 01"
                     />
                   </div>
                 </div>
