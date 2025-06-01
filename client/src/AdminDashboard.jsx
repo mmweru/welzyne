@@ -4,7 +4,7 @@ import { Package, Truck, Clock, Settings, User, ChevronRight, Plus, Edit, Trash,
 import emailjs from '@emailjs/browser';
 import { useAuth } from './context/AuthContext';
 import './AdminDashboard.css';
-import { sendBookingConfirmation, sendStatusUpdate } from '../utils/smsService';
+import { sendBookingConfirmation, sendStatusUpdate } from './utils/smsService';
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
