@@ -1,46 +1,56 @@
 import Order from '../models/orderModel.js';
 import { broadcast } from '../server.js';
+import { sendBookingConfirmation, sendStatusUpdate } from '../services/smsService.js';
+
 
 // Create a new order
 export const createOrder = async (req, res) => {
-    try {
-      const orderData = req.body;
-  
-      // Validate required fields
-      if (
-        !orderData.id ||
-        !orderData.customer ||
-        !orderData.phone ||
-        !orderData.recipientName ||
-        !orderData.recipientPhone ||
-        !orderData.destination ||
-        !orderData.pickupLocation
-      ) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-  
-      // Create new order
-      const newOrder = new Order(orderData);
-      const savedOrder = await newOrder.save();
-  
-      // Broadcast new order event via WebSocket
-      broadcast({
-        type: 'NEW_ORDER',
-        order: savedOrder,
-      });
-  
-      res.status(201).json(savedOrder);
-    } catch (error) {
-      console.error('Error creating order:', error);
-  
-      // Handle duplicate ID error
-      if (error.code === 11000) {
-        return res.status(400).json({ message: 'Order with this ID already exists' });
-      }
-  
-      res.status(500).json({ message: 'Server error', error: error.message });
+  try {
+    const orderData = req.body;
+
+    // Validate required fields
+    if (!orderData.id || !orderData.phone || !orderData.recipientPhone) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    // Create new order
+    const newOrder = new Order(orderData);
+    const savedOrder = await newOrder.save();
+
+    // Send SMS notifications
+    try {
+      const smsResult = await sendBookingConfirmation(savedOrder.toObject());
+
+      await Order.findOneAndUpdate(
+        { id: savedOrder.id },
+        {
+          $push: {
+            smsNotifications: {
+              type: 'booking',
+              success: smsResult.senderSuccess && smsResult.recipientSuccess,
+              senderStatus: smsResult.senderSuccess ? 'success' : 'failed',
+              recipientStatus: smsResult.recipientSuccess ? 'success' : 'failed',
+              timestamp: new Date()
+            }
+          }
+        }
+      );
+    } catch (smsError) {
+      console.error('SMS sending failed:', smsError);
+    }
+
+    broadcast({
+      type: 'NEW_ORDER',
+      order: savedOrder,
+    });
+
+    res.status(201).json(savedOrder);
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
+
 
 
 // Get all orders

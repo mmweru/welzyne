@@ -28,11 +28,12 @@ const app = express();
 const httpServer = createServer(app);
 
 const corsOrigins = [
-  'http://localhost:5173', 
-  'http://localhost:3000', 
-  'https://welzyne.com', 
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://welzyne.com',
   'https://welzyne.onrender.com',
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  'https://api.twilio.com' // Add Twilio if needed
 ];
 
 app.use(cors({
@@ -60,7 +61,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Twilio-Signature'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
@@ -124,6 +125,16 @@ dbConnect().then(() => {
   }
   initAdmin().catch(console.error);
 }).catch(console.error);
+
+app.post('/api/test-sms', async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    const result = await sendSMS(phone, message);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // API routes
 app.use("/api/auth", authRoutes);

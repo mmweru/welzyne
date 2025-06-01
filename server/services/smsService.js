@@ -1,10 +1,20 @@
 import twilio from 'twilio';
 
+// Validate environment variables on startup
+const requiredEnvVars = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'];
+requiredEnvVars.forEach(varName => {
+    if (!process.env[varName]) {
+        console.error(`Missing required environment variable: ${varName}`);
+        process.exit(1);
+    }
+});
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
-const client = twilio(accountSid, authToken);
 
 console.log('Twilio Config Check:', {
     accountSid: accountSid ? 'Present' : 'Missing',
@@ -40,43 +50,39 @@ const formatPhoneNumber = (phone) => {
 export const sendSMS = async (to, body) => {
     const formattedTo = formatPhoneNumber(to);
 
-    console.log('Attempting to send SMS:', {
-        to: formattedTo,
-        body: body
-    });
-
     try {
+        // Validate message length
+        if (body.length > 1600) {
+            throw new Error('Message too long (max 1600 characters)');
+        }
+
         const message = await client.messages.create({
             body: body,
             from: twilioPhoneNumber,
-            to: formattedTo
-        });
-
-        console.log('SMS sent successfully:', {
-            sid: message.sid,
-            status: message.status,
             to: formattedTo,
-            dateCreated: message.dateCreated
+            statusCallback: process.env.TWILIO_STATUS_CALLBACK // Optional for delivery reports
         });
 
         return {
             success: true,
             messageId: message.sid,
-            status: message.status
+            status: message.status,
+            to: formattedTo
         };
     } catch (error) {
-        console.error('Error sending SMS:', {
-            error: error.message,
-            code: error.code,
-            to: formattedTo,
-            originalTo: to,
-            timestamp: new Date().toISOString()
-        });
+        // Handle specific Twilio error codes
+        let userMessage = 'Failed to send SMS';
+        if (error.code === 21211) {
+            userMessage = 'Invalid phone number';
+        } else if (error.code === 21614) {
+            userMessage = 'Phone number not SMS capable';
+        }
 
         return {
             success: false,
-            error: error.message,
-            code: error.code
+            error: userMessage,
+            code: error.code,
+            details: error.message
         };
     }
 };

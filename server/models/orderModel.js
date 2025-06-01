@@ -79,20 +79,27 @@ const orderSchema = new mongoose.Schema({
   smsNotifications: [{
     type: {
       type: String,
-      enum: ['booking', 'status_update'],
+      enum: ['booking', 'status_update', 'payment', 'delivery'],
       required: true
     },
     sentAt: {
       type: Date,
       default: Date.now
     },
-    success: {
-      type: Boolean,
-      required: true
+    senderStatus: {
+      type: String,
+      enum: ['pending', 'success', 'failed'],
+      default: 'pending'
+    },
+    recipientStatus: {
+      type: String,
+      enum: ['pending', 'success', 'failed'],
+      default: 'pending'
     },
     messageId: String,
     error: String,
-    errorCode: String
+    errorCode: String,
+    cost: String
   }]
 }, {
   timestamps: true,
