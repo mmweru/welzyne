@@ -105,6 +105,19 @@ export const deleteOrder = async (req, res) => {
     }
 };
 
+export const logSMSNotification = async (orderId, notificationData) => {
+  try {
+    await Order.findOneAndUpdate(
+      { id: orderId },
+      { $push: { smsNotifications: notificationData } },
+      { new: true }
+    );
+  } catch (error) {
+    console.error('Error logging SMS notification:', error);
+  }
+};
+
+
 // In controllers/orderController.js
 
 export const updateOrderPayment = async (req, res) => {
@@ -167,11 +180,38 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: 'Status is required' });
         }
         
-        const updatedOrder = await Order.findOneAndUpdate(
-            { id },
-            { status },
-            { new: true }
-        );
+      const updatedOrder = await Order.findOneAndUpdate(
+        { id },
+        { status },
+        { new: true }
+      );
+
+      // Send and track SMS
+      try {
+        const smsResult = await sendStatusUpdate(updatedOrder.toObject());
+
+        await logSMSNotification(id, {
+          type: 'status_update',
+          success: smsResult.senderSuccess && smsResult.recipientSuccess,
+          messageId: `${smsResult.senderResult?.messageId || 'none'}|${smsResult.recipientResult?.messageId || 'none'}`,
+          ...(!smsResult.senderSuccess && {
+            error: smsResult.senderResult?.error,
+            errorCode: smsResult.senderResult?.code
+          }),
+          ...(!smsResult.recipientSuccess && {
+            error: smsResult.recipientResult?.error,
+            errorCode: smsResult.recipientResult?.code
+          })
+        });
+      } catch (smsError) {
+        console.error('SMS sending error:', smsError);
+        await logSMSNotification(id, {
+          type: 'status_update',
+          success: false,
+          error: smsError.message
+        });
+      }
+
         
         if (!updatedOrder) {
             return res.status(404).json({ message: 'Order not found' });

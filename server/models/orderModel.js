@@ -76,6 +76,24 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  smsNotifications: [{
+    type: {
+      type: String,
+      enum: ['booking', 'status_update'],
+      required: true
+    },
+    sentAt: {
+      type: Date,
+      default: Date.now
+    },
+    success: {
+      type: Boolean,
+      required: true
+    },
+    messageId: String,
+    error: String,
+    errorCode: String
+  }]
 }, {
   timestamps: true,
 });
